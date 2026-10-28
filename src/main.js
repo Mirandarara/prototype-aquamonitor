@@ -12,8 +12,8 @@ let scene,
   last = performance.now(),
   elapsed = 0;
 try {
-  scene = new SceneManager(document.querySelector("#scene"), (key) =>
-    ui?.select(key),
+  scene = new SceneManager(document.querySelector("#scene"), (key, move) =>
+    ui?.select(key, move),
   );
   ui = bindControls(sim, scene);
   function animate(now) {
@@ -34,6 +34,7 @@ try {
     () => {
       cancelAnimationFrame(frame);
       mqtt.stop();
+      ui?.dispose();
       scene.dispose();
     },
     { once: true },

@@ -1,22 +1,10 @@
 # AquaMonitor · Laboratório 3D
 
-Protótipo Three.js real e navegável, isolado do dashboard React. Preparado para a apresentação de **29/10/2026**.
+Maquete Three.js do percurso **chuva → rua → galeria → bomba → mangueira → barragem → reaproveitamento controlado pelo relé 2**. Remodelagem do laboratório existente, com os mesmos controles OrbitControls, serviço MQTT e motor hidráulico. Não há reservatório intermediário nem segunda bomba na cena.
 
-## Abrir para apresentar, inclusive sem internet
+## Executar
 
-Após executar `npm ci` e `npm run build`, o build fica em `dist/`, com JavaScript, Three.js, MQTT e estilos locais, sem CDN, fontes remotas ou modelos externos.
-
-```bash
-git clone https://github.com/mateussba/prototype-aquamonitor.git
-cd prototype-aquamonitor
-npm ci
-npm run build
-./start-presentation.sh
-```
-
-Abra **http://localhost:4174**. O lançador precisa somente de Python 3 e um navegador com WebGL2. Mantenha o terminal aberto; Ctrl+C encerra. Não abra `index.html` com `file://`, pois os módulos precisam de HTTP local.
-
-Para desenvolver (Node 22.18+ ou 24+):
+Requer Node 22.18+ ou 24+ para desenvolver e um navegador com WebGL2.
 
 ```bash
 npm ci
@@ -25,58 +13,66 @@ npm test
 npm run build
 ```
 
-`npm ci` precisa de internet na primeira instalação. Depois, a apresentação local funciona desconectada. Para levar a outro notebook, copie `dist/` e o lançador juntos, mantendo a estrutura. Os módulos de simulação e MQTT usados pelo protótipo estão incluídos em `src/features/`; este repositório pode ser reconstruído de forma independente.
+Para apresentar sem internet, gere `dist/` e execute `./start-presentation.sh`; abra **http://localhost:4174**. O lançador usa Python 3. Three.js, MQTT, estilos e geometrias estão locais, sem CDN ou modelos remotos. `npm ci` precisa de internet na primeira instalação. Copie `dist/` e o lançador juntos para outro notebook; não abra o HTML com `file://`.
 
-## Roteiro de apresentação
+## Explorar e apresentar
 
-1. Escolha **Demonstração**. Todos os dados desse modo são simulados.
-2. Clique **Demonstração completa**: inicia chuva forte, acelera o motor didático em 120×, solicita reúso e executa o ciclo por cerca de 70 segundos de execução da cena. A chuva termina após 12 segundos; a drenagem reduz o nível e a segunda bomba transporta a água. O tempo pausa quando o navegador suspende a aba.
-3. Selecione **Galerias**, **Reservatório**, **Bombas**, **Tubulação** e **Barragem**, ou clique nas peças. Os detalhes aparecem no painel de inspeção.
-4. Use **Vista subterrânea** para separar a superfície do corte, e **Exibir cidade** para ocultar a camada urbana.
-5. **Simular alerta** mantém chuva forte até o nível crítico. **Falha do sensor** demonstra a proteção da drenagem; o mesmo botão restaura o sensor.
-6. Ajuste chuva, pause ou reinicie. O botão de reúso alterna a solicitação da segunda bomba. A drenagem continua automática.
-7. Use **Tela cheia** no topo (ou F11) e qualidade **Baixa** em notebook lento. Auto reduz qualidade se detectar quadros lentos. A qualidade baixa preserva simulação, seleção e fluxos.
+- A navegação superior e as miniaturas reais oferecem visão geral, cidade, corte transversal, subsolo, bombeamento, barragem, eletrônica, reúso e vista explodida. As miniaturas são renderizadas uma vez no mesmo contexto WebGL.
+- **Camadas** controla ambiente, superfície, estrutura, hidráulica e eletrônica. Cada camada tem visibilidade, transparência e isolamento. **Raio-X** controla o solo independentemente da vista explodida. **Restaurar camadas** desfaz o isolamento e os deslocamentos.
+- **Apresentação** executa dez etapas, com câmera, destaque e entradas do próprio simulador. O tempo usa 30× para que a drenagem automática ocorra na etapa correspondente. É possível pausar, avançar, retroceder ou encerrar; o estado local anterior é restaurado. Retroceder navega pelo roteiro sem rebobinar o balanço hidráulico.
+- Clique em um componente para inspecioná-lo. **Aproximar** move a câmera; **Voltar** retorna à perspectiva anterior. A inspeção do sensor inclui distância, altura e validade da leitura.
+- **Foco** oculta a interface. Esc restaura os controles ou encerra a apresentação. Monitoramento e miniaturas também podem ser recolhidos separadamente.
+- Chuva, pausa, velocidade, falha do sensor, alerta, reinício, reúso e modo automático/manual da drenagem continuam disponíveis no modo local. Os comandos ficam bloqueados nas fontes externas.
+- **Configurações** oferece qualidade automática, baixa, média ou alta. Arraste para orbitar, use scroll/pinça para zoom e botão direito para mover.
 
-Arraste para orbitar, use scroll/pinça para zoom e botão direito/dois dedos para panorâmica. Os botões de câmera também são acessíveis pelo teclado.
+## Modelo hidráulico e semântica dos dados
 
-## Arquitetura encontrada e reutilização
+- O único HC-SR04 fica acima da rua, voltado para a água. O datum do pavimento é 0,39 e o vão de 30 cm corresponde a 0,9 unidade da cena: altura = 30 − distância. `level_pct`/`level_cm` continuam sendo recebidos sem alteração. O motor legado mantém o nome `galleryLiters`; a água subterrânea usa uma projeção didática sincronizada, sem segunda medição ou segundo balanço físico independente. A instalação física deve respeitar a mesma referência de calibração do firmware.
+- `drain_on` controla o estado da bomba que transporta **diretamente para a barragem**. Sem acionamento, sem água disponível ou sem telemetria atual, não há partículas de transporte. A leitura MQTT nunca é alterada pelo cálculo visual.
+- O motor existente já conservava volume entre a galeria e um armazenamento a jusante. Seu campo interno `tankLiters` agora corresponde à **barragem**, e `reusedTotal` contabiliza a água que deixou o sistema para irrigação. Os nomes internos foram mantidos para reaproveitar o motor. Não há terceiro volume nem retorno automático à galeria.
+- O motor conserva `galeria + barragem + reúso acumulado + transbordamento = volume inicial + chuva acumulada` (mais aportes explícitos quando usados). Mantém passos de 0,25 segundo simulado, capacidades, histerese de 20/12 cm e proteção do sensor.
+- As unidades internas do motor são didáticas: galeria de 30 unidades, armazenamento de 40, entrada máxima 3/min, drenagem 2/min e reúso 1,2/min. Não dimensionam uma cidade nem são medições físicas da barragem. A interface exibe **Volume estimado em %**, iniciando em 12,5%.
+- No MQTT, o percentual da barragem é uma estimativa integrada, limitada entre 0 e 100%. `tank_full` e `tank_empty` continuam no contrato e na validação original, mas **não são reinterpretados como sensores da barragem**. O ESP32 continua decidindo seus próprios estados e alarmes.
+- O firmware usa GPIO 26 para o relé de drenagem e GPIO 27 para o relé de reúso. Dois módulos e seus LEDs aparecem na estação técnica. `reuse_on` controla a animação do percurso descendente barragem → irrigação. O circuito não identifica o atuador final como bomba ou válvula; essa definição depende da montagem física. As proporções são aproximadas, sem modelo CAD metrológico.
+- Chuva é exclusiva da demonstração, pois o payload não informa precipitação. Ao pausar ou perder telemetria, fluxos e ondulações de entrada param. O último nível pode permanecer esmaecido e identificado como desatualizado.
 
-O projeto original usa React 19, TypeScript e Vite. O protótipo usa JavaScript modular e Three.js direto, sem React Three Fiber. Os módulos necessários do projeto original foram incluídos neste repositório independente.
+## MQTT, Wokwi e dashboard
 
-- `src/scene`: cidade procedural, corte do terreno, infraestrutura, volumes de água, chuva, partículas instanciadas e controles OrbitControls.
-- `src/simulation/SimulationController.js`: adaptador sobre `src/features/simulation/engine/simulation.ts`, com o mesmo balanço de volumes e proteções.
-- `src/mqtt/mqttClient.js`: reexporta o serviço e protocolo existentes em `src/features/esp32`. A aplicação abre uma conexão apenas no modo MQTT e encerra ao voltar à demonstração.
-- `src/ui`: controles, inspeção, status e rótulos projetados da cena.
-- `tests`: ciclo completo, conservação, proteções e integração MQTT emulada.
-
-## Semântica fiel ao projeto existente
-
-**Chuva → bueiros → galeria monitorada → drenagem P01 → reservatório → reúso P02 → transporte ilustrativo → barragem.**
-
-O nível `level_cm`/`level_pct` representa a **galeria de 30 cm**, não o volume do reservatório. `drain_on` transfere da galeria para o reservatório; `reuse_on` retira água do reservatório. O destino barragem é uma extensão visual didática desse segundo circuito, não uma nova interpretação ou decisão do firmware.
-
-O ESP32 informa `tank_full` e `tank_empty`, mas não volume contínuo do reservatório. No MQTT, o volume intermediário é uma estimativa inicial de 12,5%, integrada a taxas ilustrativas (2 L/min de entrada, 1,2 L/min de saída, capacidade didática de 40 L); as boias fixam vazio/cheio. A barragem também é estimada, nunca uma medição. Chuva não é medida pelo payload e fica desativada no MQTT.
-
-Na demonstração, o motor original liga a drenagem em 20 cm e desliga em 12 cm; falha de sensor e reservatório cheio bloqueiam drenagem. Reservatório vazio bloqueia reúso. O modelo tem escala didática, não dimensionamento hidráulico de uma cidade.
-
-## MQTT e Wokwi
+A implementação de conexão e o parser em `src/features/esp32/` não foram alterados.
 
 - Broker: `wss://broker.emqx.io:8084/mqtt`.
 - Telemetria: `aquamonitor/demo-29out-b741d2/telemetria`.
 - Status: `aquamonitor/demo-29out-b741d2/status`.
-- Wokwi documentado no projeto: https://wokwi.com/projects/478540696015596545.
+- Referência Wokwi já documentada no projeto: https://wokwi.com/projects/478540696015596545.
 
-Inicie o Wokwi e escolha **ESP32 · MQTT** no protótipo. O protótipo é **somente leitura**: não publica comandos, não muda `input_mode` e não disputa o controle do dashboard. O modo sensor/virtual exibido vem do ESP32. O parser original exige também `tank_full`/`tank_empty`, ausentes no exemplo simplificado do briefing.
+O laboratório só assina tópicos. Não publica comandos nem muda `input_mode`. Há uma conexão ativa somente no modo MQTT, encerrada ao retornar à demonstração. Retidos não comprovam atualização; dados válidos expiram em **6 segundos**. Desconexão, status offline e expiração interrompem os fluxos e mostram estados desconhecidos. Falha do sensor oculta a leitura numérica de telemetria. A identificação `device` aparece quando o payload a fornece; sua ausência não é substituída por uma identificação inventada.
 
-Pacotes retidos não comprovam atualização e são descartados. Leituras válidas expiram em **6 segundos**. Desconexão, status offline ou expiração interrompem os fluxos e mostram bombas desconhecidas. O último nível pode permanecer desenhado, esmaecido e identificado como desatualizado. Sensor inválido não apresenta leitura numérica no MQTT. Alarmes e erros de validação aparecem em texto.
+Este repositório contém o laboratório independente e cópias dos módulos compartilhados; não contém a aplicação React do dashboard, um transporte de dados por iframe ou um terceiro modo Dashboard. A remodelagem preserva o consumo somente leitura e o contrato disponíveis. Uma validação do dashboard completo depende do repositório original.
 
-## Verificação e limites
+## Arquivos e responsabilidades
 
-- `npm test` executa os 7 testes do protótipo. Os testes do dashboard pertencem ao projeto original.
-- Build de produção passou. Three.js gera um aviso de tamanho de chunk (~503 kB antes de gzip); isso não impede execução local.
-- Inspeção no navegador: cena 3D, câmeras, corte subterrâneo, demonstração e bloqueio dos controles no MQTT.
-- Conexão ao broker confirmada no navegador. Não havia telemetria atual do ESP32 durante a verificação; a validação ponta a ponta com Wokwi ativo permanece pendente. Testes emulados não substituem esse ensaio.
-- A geometria e as taxas de fluxo são didáticas. Sem referência visual anexada além do texto, a composição foi construída proceduralmente.
-- Sem benchmark de FPS em outro notebook. Use qualidade baixa caso necessário.
+- `src/scene/Infrastructure.js`: galeria em corte, sensor, ESP32, uma bomba, barragem com relevo e saída para irrigação; coordenadas das mangueiras.
+- `src/scene/City.js`: adaptação da cidade existente à região esquerda e abertura do terreno para inspeção.
+- `src/scene/Water.js`: chuva, escoamento superficial sem mangueiras decorativas, partículas instanciadas e percurso gravitacional descendente.
+- `src/scene/SceneManager.js`: animações condicionadas aos estados, níveis separados, corte suave, seleção de componentes, qualidade e descarte de recursos.
+- `src/scene/CameraController.js`: nove perspectivas e detalhe do sensor com transições suaves.
+- `src/simulation/SimulationController.js`: adaptação do armazenamento à barragem e estimativa visual MQTT sem interferir nas leituras.
+- `src/features/simulation/engine/simulation.ts`: controle manual opcional da drenagem, preservando modo automático, balanço e proteções.
+- `src/ui/Controls.js` e `src/styles/main.css`: títulos, inspeção, tour opcional, controles e espaço reservado ao painel lateral.
+- `src/scene/Layers.js`: offsets reversíveis, isolamento e opacidades independentes.
+- `src/ui/Presentation.js`: roteiro, pausa e restauração do estado.
+- `tests/redesign.test.mjs`, `tests/simulation.test.mjs` e `tests/scene.test.mjs`: testes hidráulicos, telemetria emulada, geometria e direção de fluxo.
 
-Antes da apresentação, inicie Wokwi, faça o nível ultrapassar 20 cm e cair abaixo de 12 cm, confira ambas as bombas e interrompa Wokwi para verificar a expiração. O modo demonstração está disponível independentemente desse ensaio.
+## Validação e limites
+
+`npm test` cobre o motor e a cena, incluindo novos testes de camadas e apresentação: coleta, bombeamento direto, interrupção, reúso sem retorno, conservação/capacidade, proteção manual, pausa/reinício, dados MQTT válidos/inválidos/retidos, expiração/offline/recuperação, isolamento dos controles, trajetória descendente e enquadramentos. Os testes de MQTT usam um cliente emulado, sem publicar na rede.
+
+Inspeção no navegador local cobre os controles, a maquete, as vistas e o modo somente leitura. O build usa as dependências existentes; nenhum pacote novo foi adicionado. O bundle Three.js pode gerar o aviso de chunk acima de 500 kB, sem impedir o build.
+
+Permanecem necessários o ensaio ponta a ponta com ESP32/Wokwi transmitindo, a validação na aplicação completa do dashboard e o teste em Firefox/Linux no notebook da apresentação. O navegador integrado não substitui essa matriz de hardware. A remodelagem usou o desenho do protótipo físico e as referências visuais anexadas ao pedido, além da descrição textual e dos componentes procedurais existentes.
+
+### Limites do redesign v2
+
+A direção visual segue a referência com geometria procedural low-poly; não reproduz o fotorrealismo da imagem. Não foram adicionados Blender, modelos externos ou dependências. A água usa ondulação de vértices/normais, transparência e partículas; não há reflexão de ambiente em tempo real nem solver de fluidos. Chuva não é medição do ESP32. O volume da barragem permanece estimado.
+
+A cópia integrada mantém `DashboardSimulationController`, `?embed=true` e `?source=dashboard`. As duas pastas recebem os módulos visuais, mas seus pontos de entrada e controles de fonte continuam distintos. A validação automatizada usa MQTT emulado; o ensaio com ESP32/Wokwi transmitindo e a inspeção final em dispositivos móveis ainda são necessários.

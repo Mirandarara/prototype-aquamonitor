@@ -38,6 +38,7 @@ export interface SimulationState {
   sensorFault: boolean
   reuseRequested: boolean
   drainage: PumpState
+  drainageMode?: 'auto' | 'on' | 'off'
   reuse: PumpState
   risk: Risk
   alarms: Alarm[]
@@ -50,6 +51,7 @@ export interface SimulationState {
   externalAddedTotal: number
 }
 export type SimulationAction =
+  | { type: 'drainage'; value: 'auto' | 'on' | 'off' }
   | { type: 'external'; value: SimulationState['externalControl'] }
   | { type: 'tick'; seconds: number }
   | { type: 'running'; value: boolean }
@@ -61,8 +63,8 @@ export const riskLabels: Record<Risk, string> = { normal: 'Normal', attention: '
 export const pumpLabels: Record<PumpState, string> = { on: 'Ligada', off: 'Desligada', blocked: 'Bloqueada' }
 export const alarmLabels: Record<Alarm, string> = {
   sensor: 'Falha do sensor: drenagem bloqueada.',
-  'tank-full': 'Reservatório cheio: drenagem bloqueada.',
-  'tank-empty': 'Reservatório vazio: reúso bloqueado.',
+  'tank-full': 'Barragem cheia: drenagem bloqueada.',
+  'tank-empty': 'Barragem vazia: reúso bloqueado.',
   'gallery-full': 'Galeria no limite: risco de transbordamento.',
 }
 export const galleryHeight = (s: SimulationState) => s.galleryLiters / SIMULATION_CONFIG.litersPerCm
@@ -79,7 +81,8 @@ function reconcile(s: SimulationState): SimulationState {
   const height = galleryHeight(s)
   const full = s.tankLiters >= s.capacityLiters - 1e-9
   const empty = s.tankLiters <= 1e-9
-  const drainage: PumpState = s.externalControl?.drainage ?? (s.sensorFault || full ? 'blocked'
+  const drainage: PumpState = s.externalControl?.drainage ?? (s.drainageMode === 'off' ? 'off' : s.sensorFault || full ? 'blocked'
+    : s.drainageMode === 'on' ? height > 0 ? 'on' : 'blocked'
     : height >= c.drainageStartCm || (s.drainage === 'on' && height > c.drainageStopCm) ? 'on' : 'off')
   const reuse: PumpState = s.externalControl?.reuse ?? (s.reuseRequested ? empty ? 'blocked' : 'on' : 'off')
   const risk: Risk = height >= c.criticalCm ? 'critical' : height >= c.attentionCm ? 'attention' : 'normal'
@@ -150,12 +153,13 @@ export function simulationReducer(s: SimulationState, action: SimulationAction):
     case 'capacity': {
       if (!Number.isFinite(action.value)) return s
       const capacity = Math.min(200, Math.max(5, action.value))
-      next = record({ ...s, capacityLiters: capacity, tankLiters: Math.min(s.tankLiters, capacity), overflowTotal: s.overflowTotal + Math.max(0, s.tankLiters - capacity) }, `Capacidade do reservatório: ${capacity} L. Excesso contabilizado como transbordamento.`)
+      next = record({ ...s, capacityLiters: capacity, tankLiters: Math.min(s.tankLiters, capacity), overflowTotal: s.overflowTotal + Math.max(0, s.tankLiters - capacity) }, `Capacidade ilustrativa da barragem: ${capacity} unidades. Excesso contabilizado como transbordamento.`)
       break
     }
+    case 'drainage': next = { ...s, drainageMode: action.value }; break
     case 'sensor': next = record({ ...s, sensorFault: action.value }, action.value ? 'Falha do sensor simulada.' : 'Sensor virtual restaurado.'); break
     case 'reuse': next = record({ ...s, reuseRequested: !s.reuseRequested }, s.reuseRequested ? 'Solicitação de reúso encerrada.' : 'Reúso solicitado até cancelamento ou esvaziamento.'); break
-    case 'fill': next = record({ ...s, tankLiters: s.capacityLiters, externalAddedTotal: s.externalAddedTotal + s.capacityLiters - s.tankLiters }, 'Reservatório preenchido para teste de proteção (aporte externo simulado).'); break
+    case 'fill': next = record({ ...s, tankLiters: s.capacityLiters, externalAddedTotal: s.externalAddedTotal + s.capacityLiters - s.tankLiters }, 'Barragem preenchida para teste de proteção (aporte externo simulado).'); break
   }
   return reconcile(next)
 }

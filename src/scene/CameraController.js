@@ -1,22 +1,24 @@
 import * as T from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 export const views = {
-  overview: { position: [25, 22, 31], target: [0, -0.3, -1] },
-  city: { position: [-19, 15, 18], target: [-5, 0, -2] },
-  gallery: { position: [-13, 5, 13], target: [-7, -1.5, 2] },
-  sensor: { position: [-11, 3, 9], target: [-7, -1, 3] },
-  reservoir: { position: [6, 4, 12], target: [-0.5, -2, 3] },
-  drain: { position: [1, 2, 9], target: [-3.6, -2.6, 3] },
-  reuse: { position: [7, 2, 10], target: [2.6, -2.6, 3] },
-  pipes: { position: [12, 8, 16], target: [7, -1, 2] },
-  dam: { position: [23, 12, 13], target: [11, 0, -3] },
+  overview: { position: [24, 22, 30], target: [2, 0, -1] },
+  city: { position: [-17, 12, 16], target: [-8, 0, -2] },
+  section: { position: [0, 3, 32], target: [-2, -1, 0] },
+  exploded: { position: [28, 30, 38], target: [-1, 2, -1] },
+  gallery: { position: [2, 4.5, 15], target: [-1.3, -1.5, 3.5] },
+  sensor: { position: [-11, 6, 4], target: [-7.8, 1.6, -1.9] },
+  esp32: { position: [3.6, 2, 4.5], target: [2, .2, 2.1] },
+  drain: { position: [3.8, 0.5, 10.5], target: [-0.4, -2.6, 4.2] },
+  pipes: { position: [14, 10, 18], target: [3.5, 0.6, 2.3] },
+  dam: { position: [19, 20, 15], target: [10.5, 2, -3] },
+  reuse: { position: [19, 8, 14], target: [11.3, 0.5, 2.4] },
 };
 export class CameraController {
   constructor(camera, canvas) {
     this.camera = camera;
     this.controls = new OrbitControls(camera, canvas);
     this.controls.enableDamping = true;
-    this.controls.minDistance = 5;
+    this.controls.minDistance = 1.5;
     this.controls.maxDistance = 65;
     this.controls.maxPolarAngle = Math.PI * 0.51;
     this.controls.addEventListener("start", () => (this.destination = null));

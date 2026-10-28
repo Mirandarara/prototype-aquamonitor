@@ -2,8 +2,13 @@ import {
   createInitialState,
   simulationReducer,
   alarmLabels,
+  SIMULATION_CONFIG as config,
 } from "../features/simulation/engine/simulation.ts";
 import { telemetryFresh } from "../features/esp32/mqttService.ts";
+
+const clamp = (n) => Math.min(1, Math.max(0, n));
+// The existing engine's tankLiters is the sole downstream store: the dam.
+// Keep the shared engine/telemetry names; there is no intermediate vessel.
 export class SimulationController {
   constructor(mqtt) {
     this.mqtt = mqtt;
@@ -11,22 +16,20 @@ export class SimulationController {
     this.reset();
   }
   reset() {
+    if (this.mode !== "demo") return;
     this.state = createInitialState();
     this.elapsed = 0;
     this.tour = false;
-    this.dam = 0;
-    this.liveTank = 0.125;
-    this.liveDam = 0;
+    this.liveDam = config.initialTankLiters / config.defaultCapacityLiters;
   }
   dispatch(action) {
-    if (this.mode === "demo")
-      this.state = simulationReducer(this.state, action);
+    if (this.mode === "demo") this.state = simulationReducer(this.state, action);
   }
   setMode(mode) {
+    if (!["demo", "mqtt"].includes(mode) || mode === this.mode) return;
     this.mode = mode;
     this.tour = false;
-    this.liveTank = 0.125;
-    this.liveDam = 0;
+    this.liveDam = config.initialTankLiters / config.defaultCapacityLiters;
     if (mode === "mqtt") this.mqtt.start();
     else this.mqtt.stop();
   }
@@ -40,6 +43,7 @@ export class SimulationController {
     this.dispatch({ type: "running", value: true });
   }
   tick(dt, now = Date.now()) {
+    if (!Number.isFinite(dt) || dt <= 0) return this.view(now);
     if (this.mode === "demo") {
       if (this.state.running) {
         this.elapsed += dt;
@@ -47,28 +51,25 @@ export class SimulationController {
           this.dispatch({ type: "rain", value: 0 });
       }
       this.dispatch({ type: "tick", seconds: dt });
-      this.dam = this.state.reusedTotal;
       if (this.tour && this.elapsed > 70) {
         this.tour = false;
         this.dispatch({ type: "running", value: false });
       }
-      return this.view(now);
-    }
-    const snap = this.mqtt.getSnapshot();
-    if (telemetryFresh(snap, now)) {
-      const t = snap.telemetry;
-      // Only illustrative integration. Firmware measures gallery height and tank floats, not tank volume.
-      this.liveTank = Math.min(
-        1,
-        Math.max(
-          0,
-          this.liveTank +
-            (dt * ((t.drain_on ? 2 : 0) - (t.reuse_on ? 1.2 : 0))) / 2400,
-        ),
-      );
-      if (t.tank_full) this.liveTank = 1;
-      if (t.tank_empty) this.liveTank = 0;
-      if (t.reuse_on) this.liveDam += (dt * 1.2) / 60;
+    } else {
+      const v = this.view(now);
+      if (v.fresh) {
+        // Uncalibrated visual estimate only. Never integrate back into sensor data,
+        // and never interpret legacy tank floats as measurements of the dam.
+        const capacity = config.defaultCapacityLiters;
+        const available = this.liveDam * capacity;
+        const released = v.reuseFlow ? Math.min(available, dt * config.reuseLitersPerMinute / 60) : 0;
+        const pumped = v.drainFlow ? Math.min(
+          capacity - available + released,
+          v.level * config.maxHeightCm * config.litersPerCm,
+          dt * config.drainageLitersPerMinute / 60,
+        ) : 0;
+        this.liveDam = clamp((available + pumped - released) / capacity);
+      }
     }
     return this.view(now);
   }
@@ -77,41 +78,41 @@ export class SimulationController {
       const s = this.state;
       return {
         level: s.galleryLiters / 30,
-        tank: s.tankLiters / s.capacityLiters,
-        dam: this.dam,
+        levelCm: s.sensorFault ? null : s.galleryLiters,
+        distanceCm: s.sensorFault ? null : 30 - s.galleryLiters,
+        dam: s.tankLiters / s.capacityLiters,
         rain: s.rain / 100,
         drain: s.drainage,
         reuse: s.reuse,
+        drainFlow: s.running && s.drainage === "on" && s.galleryLiters > 0 && s.tankLiters < s.capacityLiters,
+        reuseFlow: s.running && s.reuse === "on" && s.tankLiters > 0,
         sensor: !s.sensorFault,
         fresh: true,
-        alarm:
-          s.alarms.map((a) => alarmLabels[a]).join(" ") ||
-          (s.risk === "critical"
-            ? "Risco de alagamento"
-            : s.risk === "attention"
-              ? "Nível em atenção"
-              : ""),
+        alarm: s.alarms.map((a) => alarmLabels[a]).join(" ") ||
+          (s.risk === "critical" ? "Risco de alagamento" : s.risk === "attention" ? "Nível em atenção" : ""),
         input: "Demonstração simulada",
+        device: "ESP32 · demonstração",
+        connection: "local",
         running: s.running,
       };
     }
-    const snap = this.mqtt.getSnapshot(),
-      t = snap.telemetry,
-      fresh = telemetryFresh(snap, now);
+    const snap = this.mqtt.getSnapshot(), t = snap.telemetry;
+    const fresh = Boolean(t && telemetryFresh(snap, now));
     return {
       level: t?.sensor_ok ? t.level_pct / 100 : null,
-      tank: this.liveTank,
+      levelCm: t?.sensor_ok ? t.level_cm : null,
+      distanceCm: t?.sensor_ok ? t.distance_cm : null,
       dam: this.liveDam,
       rain: 0,
       drain: fresh ? (t.drain_on ? "on" : "off") : "unknown",
       reuse: fresh ? (t.reuse_on ? "on" : "off") : "unknown",
+      drainFlow: fresh && t.drain_on && t.sensor_ok && t.level_pct > 0 && this.liveDam < 1,
+      reuseFlow: fresh && t.reuse_on && this.liveDam > 0,
       sensor: fresh ? t.sensor_ok : null,
       fresh,
       alarm: fresh ? (t.alarm ? t.alarm_code : "") : "Sem telemetria atual",
-      input:
-        !t ? "Entrada desconhecida" : t.input_mode === "virtual"
-          ? "Entrada virtual do ESP32"
-          : "Sensor HC-SR04",
+      input: !t ? "Entrada desconhecida" : t.input_mode === "virtual" ? "Entrada virtual do ESP32" : "Sensor HC-SR04",
+      device: typeof t?.device === "string" ? t.device : "ESP32 · identificação não informada",
       running: fresh,
       connection: snap.connection,
       error: snap.error,
