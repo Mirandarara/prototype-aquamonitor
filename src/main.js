@@ -1,4 +1,5 @@
 import "./styles/main.css";
+import "./styles/brand.css";
 import { SceneManager } from "./scene/SceneManager.js";
 import { SimulationController } from "./simulation/SimulationController.js";
 import { AquaMqttService } from "./mqtt/mqttClient.js";

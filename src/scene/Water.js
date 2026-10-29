@@ -126,3 +126,42 @@ export class Weather {
     this.clouds.position.x = Math.sin(time*.08)*.35;
   }
 }
+
+export class Splashes {
+  constructor(parent, sample, count = 110) {
+    this.mesh = new T.InstancedMesh(
+      new T.RingGeometry(0.025, 0.055, 14).rotateX(-Math.PI / 2),
+      new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: T.AdditiveBlending }),
+      count,
+    );
+    this.mesh.frustumCulled = false;
+    this.mesh.raycast = () => {};
+    parent.add(this.mesh);
+    this.sample = sample;
+    this.drops = Array.from({ length: count }, () => ({ p: sample(), t: Math.random() }));
+    this.dummy = new T.Object3D();
+    this.color = new T.Color(0, 0, 0);
+    for (let i = 0; i < count; i++) this.mesh.setColorAt(i, this.color);
+    this.budget = 1;
+  }
+  update(dt, intensity) {
+    const active = Math.floor(this.drops.length * intensity * this.budget);
+    this.mesh.count = active;
+    this.mesh.visible = active > 0;
+    for (let i = 0; i < active; i++) {
+      const d = this.drops[i];
+      d.t += dt * 2.4;
+      if (d.t > 1) {
+        d.t = 0;
+        d.p = this.sample();
+      }
+      this.dummy.position.copy(d.p);
+      this.dummy.scale.setScalar(0.3 + d.t * 1.6);
+      this.dummy.updateMatrix();
+      this.mesh.setMatrixAt(i, this.dummy.matrix);
+      this.mesh.setColorAt(i, this.color.setScalar((1 - d.t) * 0.55));
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+}

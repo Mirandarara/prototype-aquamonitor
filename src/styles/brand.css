@@ -1,0 +1,83 @@
+/* AquaMonitor — palette drawn from the supplied logo. */
+:root {
+  --brand-navy: #042b40;
+  --brand-deep: #00182d;
+  --brand-cyan: #20c5dc;
+  --brand-water: #03b6cd;
+  --brand-blue: #007faf;
+  --brand-cream: #fff7d6;
+  --brand-ice: #e9faff;
+  --line: #80dced29;
+  --muted: #9fc3d1;
+  --panel: #042b40f2;
+  --aqua: var(--brand-cyan);
+  color: var(--brand-ice);
+  background: var(--brand-navy);
+}
+header {
+  background: linear-gradient(100deg, #042b40 15%, #043249f5 70%, #042b40f5);
+  border-bottom: 1px solid #20c5dc33;
+  box-shadow: 0 8px 30px #00182d18;
+}
+.brand { gap: 15px; letter-spacing: normal; }
+.brand .brand-logo { display: block; width: 160px; height: 74px; object-fit: contain; flex: none; }
+.brand-descriptor { padding-left: 15px; border-left: 1px solid #7edee744; color: var(--brand-cream); font-size: 8px; font-weight: 600; line-height: 1.8; letter-spacing: 1.6px; }
+.brand-descriptor span { display: block; color: #8bdde7; font-size: 7px; letter-spacing: 1.2px; }
+.top-views { background: #001e32; border-color: #4cbfda35; }
+.top-views button { color: #b9d7e1; }
+.top-views button.active,
+button[aria-pressed=true]:not(#city-toggle):not(#labels-toggle),
+.side-nav button[aria-expanded=true] {
+  color: #002a3b;
+  background: var(--brand-cyan);
+  border-color: var(--brand-cyan);
+}
+button, select { background: #07374c; border-color: #5bbcd830; border-radius: 10px; }
+button:hover { background: #0b4860; border-color: #20c5dc99; }
+button.primary { color: #002a3b; background: var(--brand-cyan); border-color: #62e0ed; font-weight: 700; }
+button.primary:hover { background: #82e6ef; }
+.mode-switch #demo-mode.active { color: #e4fbff; background: #08516a; border-color: #20c5dc66; }
+.side-nav button { background: #042b40f0; border-color: #80dced40; box-shadow: 0 6px 22px #00182d14; }
+.side-nav b { color: var(--brand-cyan); }
+.side-nav button[aria-expanded=true] b { color: #002a3b; }
+.monitor, .context-panel, .inspector { border-color: #61c4d94d; box-shadow: 0 18px 44px #00182d24, inset 0 1px #e9faff0d; }
+.monitor { border-top: 2px solid var(--brand-cyan); }
+.panel-top { color: #bce6ed; font-size: 10px; letter-spacing: .04em; }
+.reading strong { color: #f3fcff; font-weight: 600; }
+.reading .wave-icon { color: var(--brand-cyan); }
+.level-track { background: #0b4157; }
+.level-track i { background: linear-gradient(90deg, var(--brand-blue), var(--brand-cyan)); box-shadow: 0 0 12px #20c5dc35; }
+.rain-summary { background: #08374d; color: #b9d7e2; }
+.rain-summary small { color: #ecfaff; }
+.rain-summary .rain-bars { color: var(--brand-cyan); }
+.risk { color: #b8e4d0; }
+.risk.warning { color: var(--brand-cream); }
+.destination { background: #073a50; }
+.destination small { color: #82d9e5; }
+.destination b { color: var(--brand-cream); }
+.panel-foot, .context-panel p, .inspector p { color: #9fc3d1; }
+.inspector > small, #presentation small { color: var(--brand-cyan); }
+.inspector #inspect-value { color: #b5eef3; }
+.source-line { left: 126px; top: 87px; gap: 6px; }
+.source-line > span { padding: 6px 9px; color: #dcf6fc; background: #042b40d9; border: 1px solid #7fdef022; border-radius: 5px; letter-spacing: .65px; }
+.source-line #connection { color: #a9e5ed; }
+footer { background: linear-gradient(180deg, #04354a, var(--brand-navy)); border-color: #20c5dc44; }
+#perspectives-toggle { color: #a5d5e1; letter-spacing: .06em; }
+.camera-card { border-color: #70c8e138; background: #042b40; }
+.camera-card.active { outline-color: var(--brand-cyan); }
+.camera-card > span { background: linear-gradient(transparent, #001e32f5); }
+.world-label { color: #e9faff; background: #042b40eb; border-color: #75d7e86b; border-radius: 7px; }
+.scene-tools button { background: #042b40ed; border-color: #7fdef033; }
+#presentation { background: #042b40f5; border-color: #20c5dc66; border-top: 2px solid var(--brand-cyan); }
+#presentation h2 { color: var(--brand-cream); }
+#presentation p { color: #b4d2df; }
+input[type=range], input[type=checkbox] { accent-color: var(--brand-cyan); }
+@media (max-width: 1150px) {
+  .brand-descriptor { display: none; }
+  .brand .brand-logo { width: 145px; }
+}
+@media (max-width: 800px) {
+  .brand .brand-logo { width: 133px; height: 53px; }
+  header { padding-top: 6px; }
+  .top-views { box-shadow: 0 6px 16px #00182d24; }
+}

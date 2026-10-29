@@ -54,3 +54,29 @@ test('presentation uses real automatic pump control, pauses, restores previous s
   presentation.end(); sim.setMode('mqtt'); presentation.start();
   assert.equal(presentation.active, false);
 });
+
+test('animated city materials retain wetness and lights through opacity and explosion changes', () => {
+  const scene = new T.Scene(), city = new T.Group();
+  scene.add(city);
+  const source = new T.MeshStandardMaterial({ color: 0xffffff, roughness: .9, emissive: 0xffcc88, emissiveIntensity: 0 });
+  source.userData.visualAnimation = true;
+  const road = new T.Mesh(new T.BoxGeometry(), source);
+  city.add(road);
+  const layers = new Layers(scene, { surface: [city] });
+  assert.notEqual(road.material, source);
+  source.color.setHex(0x708078);
+  source.roughness = .3;
+  source.emissiveIntensity = 2;
+  source.opacity = .8;
+  layers.set('surface', { opacity: .5 });
+  layers.exploded = true;
+  layers.update(.1);
+  assert.equal(road.material.color.getHex(), source.color.getHex());
+  assert.equal(road.material.roughness, .3);
+  assert.equal(road.material.emissiveIntensity, 2);
+  assert.equal(road.material.opacity, .4);
+  layers.restore();
+  layers.update(.1);
+  assert.equal(road.material.opacity, .8);
+  assert.equal(road.material.emissiveIntensity, 2);
+});

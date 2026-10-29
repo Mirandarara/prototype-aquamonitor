@@ -1,4 +1,5 @@
 import { Presentation } from "./Presentation.js";
+const brandLogo = new URL("../assets/brand/aquamonitor.png", import.meta.url).href;
 export const components = {
   city: ["Captação urbana", "A chuva percorre o pavimento até as bocas de lobo. A tubulação de chegada conduz essa água à galeria em corte."],
   gallery: ["Galeria pluvial", "Galeria em corte. Seu nível é ilustrativo; o único sensor fica na rua. A água segue diretamente para a barragem quando a bomba é acionada."],
@@ -18,7 +19,7 @@ const cameraButtons = [
 ];
 export function layout() {
   document.querySelector("#app").innerHTML = `
-<header><a class="brand" href="./"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M16 1C13 8 3 17 3 23a13 13 0 0 0 26 0C29 17 19 8 16 1Z" fill="currentColor"/><path d="M7 24q5-6 10 0t9 0" fill="none" stroke="#defafa" stroke-width="2"/></svg><span>Aqua<span class="brand-light">Monitor</span><small>LABORATÓRIO 3D</small></span></a>
+<header><a class="brand" href="./" aria-label="AquaMonitor — Laboratório 3D"><img class="brand-logo" src="${brandLogo}" alt="AquaMonitor" width="1599" height="893" /><span class="brand-descriptor">LABORATÓRIO<span>3D INTERATIVO</span></span></a>
 <nav class="top-views" aria-label="Visualização">${[['overview','Visão geral'],['city','Cidade'],['gallery','Subsolo'],['esp32','Eletrônica'],['exploded','Explodida']].map(([k,l])=>`<button data-camera="${k}" class="${k==='overview'?'active':''}">${l}</button>`).join('')}</nav>
 <div class="header-right"><div class="mode-switch"><button id="demo-mode" class="active" aria-pressed="true">● Simulação local</button><button id="mqtt-mode" aria-pressed="false">ESP32 · MQTT</button></div><button id="fullscreen" title="Tela cheia" aria-label="Tela cheia">⛶</button></div></header>
 <main><div id="scene"></div><div id="labels"></div>

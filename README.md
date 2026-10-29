@@ -73,6 +73,12 @@ Permanecem necessários o ensaio ponta a ponta com ESP32/Wokwi transmitindo, a v
 
 ### Limites do redesign v2
 
-A direção visual segue a referência com geometria procedural low-poly; não reproduz o fotorrealismo da imagem. Não foram adicionados Blender, modelos externos ou dependências. A água usa ondulação de vértices/normais, transparência e partículas; não há reflexão de ambiente em tempo real nem solver de fluidos. Chuva não é medição do ESP32. O volume da barragem permanece estimado.
+A direção visual segue a referência com geometria procedural low-poly; não reproduz o fotorrealismo da imagem. Não foram adicionados Blender, modelos externos ou dependências. A água usa ondulação de vértices/normais, transparência e partículas; o ambiente procedural oferece reflexos estáticos, sem reflexão da cena em tempo real nem solver de fluidos. Chuva não é medição do ESP32. O volume da barragem permanece estimado.
 
 A cópia integrada mantém `DashboardSimulationController`, `?embed=true` e `?source=dashboard`. As duas pastas recebem os módulos visuais, mas seus pontos de entrada e controles de fonte continuam distintos. A validação automatizada usa MQTT emulado; o ensaio com ESP32/Wokwi transmitindo e a inspeção final em dispositivos móveis ainda são necessários.
+
+### Melhorias visuais do colaborador
+
+As melhorias compatíveis da branch `demonstracao-tecnica` (commit `123589b`) foram adaptadas para o circuito de uma bomba: cidade com fachadas e telhados texturizados, lojas, calçadas, trânsito com semáforos, pedestres e guarda-chuvas, árvores com vento e respingos. A iluminação procedural muda com a chuva, incluindo nuvens, janelas e postes iluminados durante a tempestade. As texturas são geradas localmente, sem downloads adicionais.
+
+Foram preservados o declive calibrado da rua, a abertura de inspeção, o bombeamento direto à barragem, o reúso por gravidade, o motor e os controles existentes. O reservatório intermediário e a segunda bomba da branch do colaborador não foram incorporados. As animações respeitam pausa e dados atuais; a qualidade gráfica limita o número de respingos. Os materiais animados continuam funcionando com transparência, isolamento e vista explodida.

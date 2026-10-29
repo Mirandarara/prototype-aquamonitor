@@ -11,9 +11,10 @@ export class Layers {
       const meshes = [];
       roots.forEach(root => root.traverse(o => {
         if (!o.isMesh || Array.isArray(o.material)) return;
-        if (!materials.has(o.material)) materials.set(o.material, o.material.clone());
+        const source = o.material;
+        if (!materials.has(source)) materials.set(source, source.clone());
         o.material = materials.get(o.material);
-        meshes.push({ mesh: o, opacity: o.material.opacity, transparent: o.material.transparent });
+        meshes.push({ mesh: o, source, opacity: o.material.opacity, transparent: o.material.transparent });
       }));
       return { key, roots, meshes, visible: true, opacity: 1, offset: [0, 6, 1.8, 0, 4][i], origins: roots.map(r => r.position.clone()) };
     });
@@ -33,10 +34,16 @@ export class Layers {
     for (const item of this.items) {
       item.roots.forEach((r, i) => { r.visible = item.visible; r.position.copy(item.origins[i]); r.position.y += item.offset * this.blend; });
       const opacity = item.opacity * (item.key === 'structure' ? this.xray * (1 - cutaway * .96) : 1);
-      item.meshes.forEach(({ mesh, opacity: original, transparent }) => {
-        mesh.material.opacity = original * opacity;
+      item.meshes.forEach(({ mesh, source, opacity: original, transparent }) => {
+        if (source.userData.visualAnimation) {
+          mesh.material.color.copy(source.color);
+          mesh.material.emissive?.copy(source.emissive);
+          mesh.material.emissiveIntensity = source.emissiveIntensity;
+          mesh.material.roughness = source.roughness;
+        }
+        mesh.material.opacity = (source.userData.visualAnimation ? source.opacity : original) * opacity;
         mesh.material.transparent = transparent || opacity < .999;
-        mesh.material.depthWrite = mesh.material.opacity > .45;
+        mesh.material.depthWrite = source.depthWrite && mesh.material.opacity > .45;
       });
     }
   }

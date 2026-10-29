@@ -3,7 +3,8 @@ import { createCity } from "./City.js";
 import { createInfrastructure, hydraulicPaths } from "./Infrastructure.js";
 import { CameraController, views } from "./CameraController.js";
 import { Layers } from "./Layers.js";
-import { Flow, Rain, Weather, waterSurface } from "./Water.js";
+import { Atmosphere } from "./Atmosphere.js";
+import { Flow, Rain, waterSurface } from "./Water.js";
 import { box } from "./primitives.js";
 export class SceneManager {
   constructor(host, onSelect) {
@@ -31,23 +32,9 @@ export class SceneManager {
       this.camera,
       this.renderer.domElement,
     );
-    this.scene.add(new T.HemisphereLight(0xf4f7eb, 0x718b83, 1.8));
-    this.sun = new T.DirectionalLight(0xfff2d8, 2.4);
-    this.sun.position.set(-12, 26, 16);
-    this.sun.castShadow = true;
-    Object.assign(this.sun.shadow.camera, {
-      left: -28,
-      right: 28,
-      top: 25,
-      bottom: -25,
-      near: 1,
-      far: 75,
-    });
-    this.sun.shadow.bias = -0.001;
-    this.sun.shadow.normalBias = 0.05;
-    this.sun.shadow.mapSize.set(1024, 1024);
-    this.scene.add(this.sun);
-    box(this.scene, [200, 0.2, 200], [0, -4.4, 0], 0x0c2429);
+    this.atmosphere = new Atmosphere(this.scene, this.renderer);
+    this.sun = this.atmosphere.sun;
+    box(this.scene, [200, 0.2, 200], [0, -4.4, 0], 0xc4cec2);
     const grid = new T.GridHelper(90, 60, 0x173a3e, 0x102c31);
     grid.position.y = -4.28;
     grid.visible = false;
@@ -57,7 +44,8 @@ export class SceneManager {
     this.parts = createInfrastructure(this.scene);
     this.environment = new T.Group(); this.scene.add(this.environment);
     this.rain = new Rain(this.environment);
-    this.weather = new Weather(this.environment);
+    this.environment.add(this.atmosphere.clouds);
+    this.atmosphere.cloudMat.userData.visualAnimation = true;
     this.street = waterSurface(this.city, 6, 1.95, [-4.8, .42, -.9]);
     this.street.mesh.userData.component = 'city';
     this.channelSurface = waterSurface(this.parts.underground, 10.8, 2, [-9.65, -3, 4.05]);
@@ -101,7 +89,6 @@ export class SceneManager {
       hydraulic: [this.parts.underground, this.parts.dam, this.parts.irrigation, this.flowSystem],
       electronics: [this.parts.esp],
     });
-    this.weather.material = this.weather.clouds.children[0].material;
     this.highlight = new T.BoxHelper(this.parts.sensor, 0x87e3e0);
     this.highlight.visible = false; this.scene.add(this.highlight);
     this.raycaster = new T.Raycaster();
@@ -166,6 +153,7 @@ export class SceneManager {
     );
     this.renderer.shadowMap.enabled = tier !== "low";
     this.rain.budget = { low: 250, medium: 550, high: 900 }[tier];
+    this.city.userData.splashes.budget = { low: 0.3, medium: 0.65, high: 1 }[tier];
     this.resize();
   }
   setUnderground(enabled, moveCamera = true) {
@@ -177,13 +165,18 @@ export class SceneManager {
     this.cameraController.update(dt);
     const alpha = 1 - Math.exp(-dt * 3);
     this.cutawayBlend += ((this.cutaway ? 1 : 0) - this.cutawayBlend) * alpha;
+    const weatherIntensity = v.fresh && v.running ? v.rain : 0;
+    const weatherDt = v.running || v.rain === 0 ? dt : 0;
+    const weather = this.atmosphere.update(weatherDt, weatherIntensity);
+    this.city.userData.updateVisuals(v.running ? dt : 0, {
+      time: this.time,
+      rain: weatherIntensity,
+      wind: weather.storm,
+      dark: weather.dark,
+    });
     this.layers.update(dt, this.cutawayBlend);
-    const weatherIntensity = v.fresh ? v.rain : 0;
-    this.weather.update(dt, weatherIntensity, this.time);
     const environmentOpacity = this.layers.items.find(i => i.key === 'environment').opacity;
-    this.weather.material.opacity *= environmentOpacity;
     this.rain.lines.material.opacity = .55 * environmentOpacity;
-    this.sun.intensity = 2.4 - this.weather.amount * 1.0;
     if (v.level !== null) this.level += (v.level - this.level) * alpha;
     this.dam += (v.dam - this.dam) * alpha;
     this.parts.gallery.scale.y = Math.max(0.001, this.level * 2.65);
@@ -215,7 +208,7 @@ export class SceneManager {
     }
     const rainActive = v.fresh && v.running && v.rain > 0;
     this.streetFlows.forEach(f => f.update(dt, rainActive && this.city.visible));
-    this.rain.update(dt, rainActive && this.city.visible ? Math.min(v.rain, this.weather.amount) : 0);
+    this.rain.update(dt, rainActive && this.city.visible ? Math.min(v.rain, this.atmosphere.storm) : 0);
     this.inlets.forEach(f => f.update(dt, rainActive));
     this.drainFlow.update(dt, v.drainFlow);
     this.reuseFlow.update(dt, v.reuseFlow);
@@ -294,6 +287,12 @@ export class SceneManager {
     });
     geometries.forEach((g) => g.dispose());
     materials.forEach((m) => m.dispose());
+    const textures = new Set();
+    for (const material of materials) {
+      for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
+    }
+    textures.forEach(texture => texture.dispose());
+    this.scene.environment?.dispose();
     this.renderer.dispose();
   }
 }
