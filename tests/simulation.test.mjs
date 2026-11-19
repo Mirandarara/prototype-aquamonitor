@@ -8,6 +8,7 @@ import {
 } from "../src/mqtt/mqttClient.js";
 import { EventEmitter } from "node:events";
 const payload = (patch = {}) => ({
+  device:'test-esp32', reuse_requested:false, wifi_connected:true, mqtt_connected:true, seq:1, uptime_ms:1000,
   level_cm: 22,
   level_pct: 73.3,
   distance_cm: 8,
@@ -85,7 +86,7 @@ test("pause freezes model and reset restores all demonstration state", () => {
   assert.equal(s.state.galleryLiters, 8);
   assert.equal(s.state.rain, 0);
 });
-test("MQTT state mirrors firmware, expires at six seconds, and demo cannot alter it", () => {
+test("MQTT state mirrors firmware, tolerates short delays and expires at fifteen seconds, and demo cannot alter it", () => {
   const f = fixture(),
     s = new SimulationController(f);
   s.setMode("mqtt");
@@ -95,7 +96,11 @@ test("MQTT state mirrors firmware, expires at six seconds, and demo cannot alter
   assert.equal(s.view(2000).reuse, "on");
   s.dispatch({ type: "sensor", value: true });
   assert.equal(s.view(2000).sensor, true);
-  const v = s.tick(0.1, 7000);
+  const delayed = s.tick(0.1, 7000);
+  assert.equal(delayed.fresh, true);
+  assert.equal(delayed.delayed, true);
+  assert.equal(delayed.ageSeconds, 6);
+  const v = s.tick(0.1, 1000 + MQTT_CONFIG.staleMs);
   assert.equal(v.fresh, false);
   assert.equal(v.drain, "unknown");
   assert.equal(v.sensor, null);
@@ -115,11 +120,13 @@ test("shared MQTT service subscribes, rejects retained and invalid payloads, nev
     assert.deepEqual(topics, [MQTT_CONFIG.telemetry, MQTT_CONFIG.status]);
     done(null, [{ qos: 0 }]);
   };
-  c.end = () => {};
+  c.options = {};
+  c.end = (_force, _options, done) => done?.();
   c.publish = () => assert.fail("prototype must never publish");
   const service = new AquaMqttService(() => c);
   const sim = new SimulationController(service);
   sim.setMode("mqtt");
+  service.start({username:"test-only",password:"not-a-real-credential"});
   c.emit("connect");
   const send = (p, retain = false) =>
     c.emit("message", MQTT_CONFIG.telemetry, Buffer.from(JSON.stringify(p)), {
@@ -214,13 +221,13 @@ test("manual pump retains dry-run, full-store and sensor protections", () => {
   }
 });
 
-test("F/G: live gallery is authoritative; only drain_on fills the illustrative dam", () => {
+test("F/G: live gallery is authoritative; relay states animate flows without inventing dam volume", () => {
   const f = fixture(), s = new SimulationController(f);
   s.setMode("mqtt");
   const original = structuredClone(f.state.telemetry);
   const first = s.tick(1, 1000);
   assert.equal(first.level, original.level_pct / 100);
-  assert.ok(first.dam > 0.125);
+  assert.equal(first.dam, null);
   assert.deepEqual(f.state.telemetry, original);
   f.state.telemetry = payload({ drain_on: false });
   const off = s.tick(1, 2000);
@@ -228,18 +235,18 @@ test("F/G: live gallery is authoritative; only drain_on fills the illustrative d
   assert.equal(off.dam, first.dam);
   f.state.telemetry = payload({ drain_on: false, reuse_on: true });
   const reused = s.tick(1, 3000);
-  assert.ok(reused.dam < off.dam);
+  assert.equal(reused.dam, null);
   assert.equal(reused.level, original.level_pct / 100);
   f.state.telemetry = payload({ reuse_on: true });
-  const stale = s.tick(1, 7000);
+  const stale = s.tick(1, 1000 + MQTT_CONFIG.staleMs);
   assert.equal(stale.dam, reused.dam);
   assert.equal(stale.drainFlow, false);
   assert.equal(stale.reuseFlow, false);
   assert.equal(stale.drain, "unknown");
-  f.state.receivedAt = 7001;
-  assert.equal(s.tick(0.1, 7001).drainFlow, true);
+  f.state.receivedAt = 16001;
+  assert.equal(s.tick(0.1, 16001).drainFlow, true);
   f.state.deviceStatus = "offline";
-  const offline = s.tick(1, 7100);
+  const offline = s.tick(1, 16100);
   assert.equal(offline.fresh, false);
   assert.equal(offline.drainFlow, false);
 });
@@ -248,13 +255,13 @@ test("legacy floats never become invented dam measurements; local actions cannot
   const f = fixture(), s = new SimulationController(f);
   s.setMode("mqtt");
   f.state.telemetry = payload({ drain_on: false, tank_full: true });
-  assert.equal(s.tick(1, 1000).dam, 0.125);
+  assert.equal(s.tick(1, 1000).dam, null);
   f.state.telemetry = payload({ drain_on: false, tank_empty: true });
-  assert.equal(s.tick(1, 1000).dam, 0.125);
+  assert.equal(s.tick(1, 1000).dam, null);
   s.reset(); s.startTour();
   s.dispatch({ type: "drainage", value: "on" });
   assert.equal(s.view(1000).drain, "off");
-  assert.equal(s.view(1000).dam, 0.125);
+  assert.equal(s.view(1000).dam, null);
   assert.equal(s.tour, false);
 });
 
@@ -277,7 +284,7 @@ test("bounded hydraulic model conserves volume at varied frame rates, capacity a
   }
 });
 
-test("no flow from invalid or empty live gallery and no flow while paused", () => {
+test("live relay animation follows the ESP32 even when measurement fails; local pause stops flow", () => {
   const f = fixture(), s = new SimulationController(f);
   s.startTour();
   s.dispatch({ type: "drainage", value: "on" });
@@ -288,7 +295,7 @@ test("no flow from invalid or empty live gallery and no flow while paused", () =
   for (const patch of [{ sensor_ok: false }, { level_pct: 0, level_cm: 0 }]) {
     f.state.telemetry = payload(patch);
     const before = s.view(1000).dam;
-    assert.equal(s.tick(1, 1000).drainFlow, false);
+    assert.equal(s.tick(1, 1000).drainFlow, true);
     assert.equal(s.view(1000).dam, before);
   }
 });

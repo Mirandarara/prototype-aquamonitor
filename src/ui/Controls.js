@@ -1,3 +1,5 @@
+import { bindMqttSession } from './MqttSession.js';
+import { prototypeMarkup, bindPrototypeDialog } from "./PrototypeDialog.js";
 import { Presentation } from "./Presentation.js";
 const brandLogo = new URL("../assets/brand/aquamonitor.png", import.meta.url).href;
 export const components = {
@@ -29,12 +31,12 @@ export function layout() {
 <aside class="monitor"><div class="panel-top">Estação de monitoramento <button id="monitor-toggle" title="Recolher monitoramento" aria-label="Recolher monitoramento" aria-expanded="true">−</button></div><div class="monitor-body"><div class="station">Nível de alagamento <span>(rua)</span><i class="live-dot"></i></div><div class="reading"><strong id="level">—</strong><span>%</span><span class="wave-icon">≋</span></div><div class="level-track"><i id="level-bar"></i></div><div class="range-label"><span id="cm">— / 30 cm</span></div><div id="risk" class="risk">Nível normal</div>
 <div class="rain-summary">☁ <span>Intensidade da chuva<small id="rain-measure">Cenário local · 0%</small></span><span class="rain-bars">▁▂▃▅▆</span></div>
 <dl><div><dt>Sensor ultrassônico</dt><dd id="sensor-state">—</dd></div><div><dt>Bomba de drenagem</dt><dd id="drain-state">—</dd></div><div><dt>Reúso · relé 2</dt><dd id="reuse-state">—</dd></div><div><dt>ESP32 / MQTT</dt><dd id="hardware-state">Não utilizado</dd></div></dl><div class="destination"><small>DESTINO · BARRAGEM</small><span>Volume estimado <b id="dam-value">—</b>%</span></div><p id="data-note" class="panel-foot"></p></div></aside>
-<section id="inspector" class="inspector" hidden><button id="close-inspector" class="close" aria-label="Fechar inspeção">×</button><small>INSPEÇÃO DO SISTEMA</small><h2 id="inspect-title"></h2><p id="inspect-description"></p><span id="inspect-value"></span><div class="inspector-actions"><button id="focus-component">Aproximar</button><button id="back-component">Voltar</button></div><div id="hardware-links" hidden><button data-inspect="sensor">HC-SR04</button><button data-inspect="esp32">ESP32 + relés</button></div></section>
-<div class="scene-tools"><button id="underground" aria-pressed="false">▱ Corte</button><button id="city-toggle" aria-pressed="true">⌂ Cidade</button><button id="reset-camera" title="Restaurar câmera">↺</button><button id="labels-toggle" aria-pressed="true">Etiquetas</button><button id="clean" title="Ocultar interface">◱ Foco</button></div><button id="restore-ui" hidden>◱ Mostrar interface</button>
+<section id="inspector" class="inspector" hidden><button id="close-inspector" class="close" aria-label="Fechar inspeção">×</button><small>INSPEÇÃO DO SISTEMA</small><h2 id="inspect-title"></h2><p id="inspect-description"></p><span id="inspect-value"></span><div class="inspector-actions"><button id="focus-component">Aproximar</button><button id="back-component">Voltar</button></div><div id="hardware-links" hidden><button data-inspect="sensor">HC-SR04</button><button data-inspect="esp32">ESP32 + relés</button><button data-prototype-open>Circuito completo ↗</button></div></section>
+<div class="scene-tools"><button data-prototype-open>⌘ Protótipo físico</button><button id="underground" aria-pressed="false">▱ Corte</button><button id="city-toggle" aria-pressed="true">⌂ Cidade</button><button id="reset-camera" title="Restaurar câmera">↺</button><button id="labels-toggle" aria-pressed="true">Etiquetas</button><button id="clean" title="Ocultar interface">◱ Foco</button></div><button id="restore-ui" hidden>◱ Mostrar interface</button>
 <div id="presentation" hidden><small id="presentation-step"></small><h2 id="presentation-title"></h2><p id="presentation-text"></p><div><button id="prev-step" aria-label="Etapa anterior">←</button><button id="pause-presentation">Pausar</button><button id="next-step" aria-label="Próxima etapa">→</button><button id="end-presentation">Encerrar</button></div></div>
 <div class="navigation-hint">Arraste para orbitar · Scroll para zoom · Botão direito para mover</div></main>
 <footer><button id="perspectives-toggle" aria-expanded="true">Perspectivas <span>⌄</span></button><nav class="camera-nav" aria-label="Perspectivas">${cameraButtons.map(([key,n,label])=>`<button data-camera="${key}" class="camera-card ${key==='overview'?'active':''}"><canvas data-thumbnail="${key}" aria-hidden="true"></canvas><span><small>${n}</small>${label}</span></button>`).join('')}</nav>
-<div class="simulation-controls"><button id="tour" class="primary">▶ Apresentação</button><button id="play" aria-label="Iniciar ou pausar simulação">▶</button><label class="rain-control"><span>Intensidade da chuva <output id="rain-value">0%</output></span><input id="rain" type="range" min="0" max="100" value="0" aria-label="Intensidade da chuva"></label><label class="pump-control">Modo da bomba<select id="pump-mode"><option value="auto">Automática</option><option value="on">Ligada</option><option value="off">Desligada</option></select></label><button id="reuse">Abrir reúso</button><button id="storm">⚠ Simular alerta</button><button id="fault">Falha do sensor</button><button id="reset" title="Reiniciar simulação">↺</button><label class="speed-control">Velocidade<select id="speed"><option value="1">1×</option><option value="30" selected>30×</option><option value="60">60×</option><option value="120">120×</option></select></label><span id="scenario-title"></span><input id="guided" type="checkbox" hidden></div></footer><div id="error" role="alert" hidden></div>`;
+<div class="simulation-controls"><button id="tour" class="primary">▶ Apresentação</button><button id="play" aria-label="Iniciar ou pausar simulação">▶</button><label class="rain-control"><span>Intensidade da chuva <output id="rain-value">0%</output></span><input id="rain" type="range" min="0" max="100" value="0" aria-label="Intensidade da chuva"></label><label class="pump-control">Modo da bomba<select id="pump-mode"><option value="auto">Automática</option><option value="on">Ligada</option><option value="off">Desligada</option></select></label><button id="reuse">Abrir reúso</button><button id="storm">⚠ Simular alerta</button><button id="fault">Falha do sensor</button><button id="reset" title="Reiniciar simulação">↺</button><label class="speed-control">Velocidade<select id="speed"><option value="1">1×</option><option value="30" selected>30×</option><option value="60">60×</option><option value="120">120×</option></select></label><span id="scenario-title"></span><input id="guided" type="checkbox" hidden></div></footer><div id="error" role="alert" hidden></div>${prototypeMarkup()}`;
 }
 export function bindControls(sim, scene) {
   const $ = (id) => document.getElementById(id);
@@ -42,6 +44,7 @@ export function bindControls(sim, scene) {
   const select = (key, move = true) => {
     previous = current; current = key;
     scene.focus(key);
+    if (key === "esp32" && !move) prototype.open();
     scene.layers.exploded = key === 'exploded';
     const cutaway = ["gallery", "section", "drain"].includes(key);
     scene.setUnderground(cutaway, false);
@@ -63,6 +66,8 @@ export function bindControls(sim, scene) {
       $("inspector").dataset.key = key;
     }
   };
+  const prototype = bindPrototypeDialog(select);
+  const mqttSession = bindMqttSession(sim);
   document
     .querySelectorAll("[data-camera]")
     .forEach((b) => (b.onclick = () => select(b.dataset.camera)));
@@ -107,7 +112,7 @@ export function bindControls(sim, scene) {
   $('labels-toggle').onclick = () => { showLabels = !showLabels; $('labels').hidden = !showLabels; $('labels-toggle').setAttribute('aria-pressed', String(showLabels)); };
   const clean = value => { document.body.classList.toggle('clean-view', value); $('restore-ui').hidden = !value; };
   $('clean').onclick = () => clean(true); $('restore-ui').onclick = () => clean(false);
-  const onKeyDown = e => { if (e.key === 'Escape') { clean(false); presentation.end(); $('context').hidden = true; } };
+  const onKeyDown = e => { if (e.key === 'Escape' && !$('prototype-dialog').open) { clean(false); presentation.end(); $('context').hidden = true; } };
   document.addEventListener('keydown', onKeyDown);
   $('close-context').onclick = () => $('context').hidden = true;
   const names = { environment: 'A · Ambiance et climat', surface: 'B · Superfície urbana', structure: 'C · Estrutura subterrânea', hydraulic: 'D · Sistema hidráulico', electronics: 'E · Eletrônica' };
@@ -213,12 +218,13 @@ export function bindControls(sim, scene) {
   };
   return {
     select,
-    dispose() { document.removeEventListener('keydown', onKeyDown); },
+    dispose() { mqttSession.dispose(); document.removeEventListener('keydown', onKeyDown); prototype.dispose(); },
     update(v, time) {
       if (!this.thumbnailsDone) { scene.thumbnails(document.querySelectorAll('[data-thumbnail]')); this.thumbnailsDone = true; }
       presentation.update(Math.max(0, time - (this.lastTime ?? time))); this.lastTime = time;
+      mqttSession.update();
       $('rain-measure').textContent = sim.mode === 'mqtt' || v.input?.includes('ESP32') || v.input === 'Sensor HC-SR04' ? 'Não medida pelo ESP32' : `Cenário simulado · ${Math.round(v.rain * 100)}%`;
-      $('hardware-state').textContent = sim.mode === 'demo' ? 'Não utilizado' : v.fresh ? 'Telemetria atual' : 'Aguardando dados';
+      $('hardware-state').textContent = sim.mode === 'demo' ? 'Não utilizado' : v.fresh ? (v.delayed ? `Última leitura há ${v.ageSeconds} s` : 'Telemetria atual') : 'Aguardando dados';
       if (sim.tour && $("guided").checked) {
         const step = Math.min(6, Math.floor(sim.elapsed / 10));
         if (step !== tourStep) { select(cameraButtons[step][0]); tourStep = step; }
@@ -243,7 +249,8 @@ export function bindControls(sim, scene) {
       }
       if (time - last < 0.15) return;
       last = time;
-      document.querySelector('.live-dot').style.background = v.fresh ? '#a2cfa8' : '#c5a46e';
+      prototype.update(v, sim.mode);
+      document.querySelector('.live-dot').style.background = v.fresh && !v.delayed ? '#a2cfa8' : '#c5a46e';
       $("level").style.opacity = v.fresh ? '1' : '.45';
       $("level").textContent = v.level === null ? "—" : format(v.level * 100);
       $("level-bar").style.width = `${(v.level || 0) * 100}%`;
@@ -261,12 +268,12 @@ export function bindControls(sim, scene) {
         v.alarm || (v.level >= 0.6 ? "Nível em atenção" : "Nível normal");
       $("risk").className =
         "risk " + (v.alarm || v.level >= 0.6 ? "warning" : "");
-      $("dam-value").textContent = format(v.dam * 100);
+      $("dam-value").textContent = v.dam === null ? '—' : format(v.dam * 100);
       $("connection").textContent =
         sim.mode === "demo"
           ? "● Operação local"
           : v.fresh
-            ? "● ESP32 transmitindo"
+            ? (v.delayed ? "● ESP32 online · recebimento com atraso" : "● ESP32 transmitindo")
             : v.connection === "connected"
               ? "◌ Aguardando ESP32"
               : `◌ MQTT · ${v.connection}`;
@@ -274,7 +281,7 @@ export function bindControls(sim, scene) {
         sim.mode === "demo"
           ? "Simulação local · escala didática"
           : v.error ||
-            `${v.fresh ? "Leitura atual" : v.level === null ? "Aguardando leitura válida" : "Última leitura · desatualizada"} · ${v.input}${v.receivedAt ? " · " + new Date(v.receivedAt).toLocaleTimeString("pt-BR") : ""}`;
+            `${v.fresh ? (v.delayed ? `Última leitura há ${v.ageSeconds} s` : "Leitura atual") : v.level === null ? "Aguardando leitura válida" : "Última leitura · desatualizada"} · ${v.input}${v.receivedAt ? " · " + new Date(v.receivedAt).toLocaleTimeString("pt-BR") : ""}`;
       $("pump-mode").value = sim.state.drainageMode || "auto";
       $("rain").value = sim.state.rain;
       $("rain-value").textContent = sim.mode === "demo" ? sim.state.rain + "%" : "—";
@@ -298,8 +305,8 @@ export function bindControls(sim, scene) {
         : "Falha do sensor";
       const key = $("inspector").dataset.key;
       $("inspect-value").textContent =
-        key === "gallery" ? "Interior ilustrativo · sem sensor próprio. A medição apresentada pertence à rua." : key === "dam"
-          ? `Volume estimado: ${format(v.dam * 100)}% · ${v.fresh ? "estimativa visual" : "estimativa pausada"}`
+        key === "gallery" ? "Nível da galeria de 30 cm compartilhado com a lâmina da rua na maquete." : key === "dam"
+          ? `Volume estimado: ${v.dam === null ? 'não medido' : format(v.dam * 100) + '%'} · ${v.fresh ? "estimativa visual" : "estimativa pausada"}`
           : key === "esp32"
             ? `${v.device} · MQTT: ${v.connection === "local" ? "não utilizado" : v.connection} · ${v.input} · Bomba: ${stateLabels[v.drain]}${v.fresh ? "" : " · Telemetria desatualizada"}`
             : key === "sensor"

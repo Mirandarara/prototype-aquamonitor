@@ -28,26 +28,26 @@ Para apresentar sem internet, gere `dist/` e execute `./start-presentation.sh`; 
 ## Modelo hidráulico e semântica dos dados
 
 - O único HC-SR04 fica acima da rua, voltado para a água. O datum do pavimento é 0,39 e o vão de 30 cm corresponde a 0,9 unidade da cena: altura = 30 − distância. `level_pct`/`level_cm` continuam sendo recebidos sem alteração. O motor legado mantém o nome `galleryLiters`; a água subterrânea usa uma projeção didática sincronizada, sem segunda medição ou segundo balanço físico independente. A instalação física deve respeitar a mesma referência de calibração do firmware.
-- `drain_on` controla o estado da bomba que transporta **diretamente para a barragem**. Sem acionamento, sem água disponível ou sem telemetria atual, não há partículas de transporte. A leitura MQTT nunca é alterada pelo cálculo visual.
+- `drain_on` controla o estado da bomba que transporta **diretamente para a barragem**. No modo conectado, as partículas seguem o acionamento informado pelo ESP32 e param quando a telemetria expira. A leitura MQTT nunca é alterada pelo cálculo visual.
 - O motor existente já conservava volume entre a galeria e um armazenamento a jusante. Seu campo interno `tankLiters` agora corresponde à **barragem**, e `reusedTotal` contabiliza a água que deixou o sistema para irrigação. Os nomes internos foram mantidos para reaproveitar o motor. Não há terceiro volume nem retorno automático à galeria.
 - O motor conserva `galeria + barragem + reúso acumulado + transbordamento = volume inicial + chuva acumulada` (mais aportes explícitos quando usados). Mantém passos de 0,25 segundo simulado, capacidades, histerese de 20/12 cm e proteção do sensor.
 - As unidades internas do motor são didáticas: galeria de 30 unidades, armazenamento de 40, entrada máxima 3/min, drenagem 2/min e reúso 1,2/min. Não dimensionam uma cidade nem são medições físicas da barragem. A interface exibe **Volume estimado em %**, iniciando em 12,5%.
-- No MQTT, o percentual da barragem é uma estimativa integrada, limitada entre 0 e 100%. `tank_full` e `tank_empty` continuam no contrato e na validação original, mas **não são reinterpretados como sensores da barragem**. O ESP32 continua decidindo seus próprios estados e alarmes.
+- No MQTT, o volume da barragem não é medido: não há percentual ou integração inventada. A geometria da barragem permanece na cena, sem uma lâmina que aparentaria uma medição. `tank_full` e `tank_empty` continuam no contrato e na validação original, mas **não são reinterpretados como sensores da barragem**. O ESP32 continua decidindo seus próprios estados e alarmes.
 - O firmware usa GPIO 26 para o relé de drenagem e GPIO 27 para o relé de reúso. Dois módulos e seus LEDs aparecem na estação técnica. `reuse_on` controla a animação do percurso descendente barragem → irrigação. O circuito não identifica o atuador final como bomba ou válvula; essa definição depende da montagem física. As proporções são aproximadas, sem modelo CAD metrológico.
 - Chuva é exclusiva da demonstração, pois o payload não informa precipitação. Ao pausar ou perder telemetria, fluxos e ondulações de entrada param. O último nível pode permanecer esmaecido e identificado como desatualizado.
 
 ## MQTT, Wokwi e dashboard
 
-A implementação de conexão e o parser em `src/features/esp32/` não foram alterados.
+- WSS: `wss://d684655e.ala.us-east-1.emqxsl.com:8084/mqtt`.
+- Tópicos: `aquamonitor/demo-29out-b741d2/{telemetria,comandos,status}`.
+- Selecione **ESP32 · MQTT**, abra **Conexão EMQX Cloud e entradas virtuais** e insira credenciais temporárias. Os campos são limpos após conectar; somente o cliente MQTT mantém as credenciais em memória para reconectar. Nenhuma senha entra no código, variáveis públicas, armazenamento do navegador, logs ou bridge.
+- No modo direto, escolha sensor ou entradas virtuais. Nível e boias são enviados a cada 2 s; a maquete mostra apenas a resposta recebida. Ao sair, o envio periódico termina e `{"mode":"sensor"}` é publicado antes de desconectar, se a rede estiver disponível. `drain_on`/`reuse_on` nunca são comandados pelo navegador.
+- Uma conexão por sessão; `clientId` único, reconexão em 2 s, reinscrição e limpeza dos listeners. Telemetria retida ou inválida não comprova atualização. Após 6 s aparece um aviso de atraso, com a idade da última leitura. Após 15 s sem dados válidos, os fluxos param e os estados ficam desconhecidos. Broker, status ESP32 e atualidade da telemetria são apresentados separadamente.
+- Todos os 18 campos do contrato são validados, incluindo device, flags de conexão, seq e uptime_ms. Falha do sensor oculta leitura numérica. As boias não são convertidas em litros ou percentual da barragem.
+- A cópia independente mantém seu modo local. A cópia integrada em `/home/mateus/Downloads/Aqua onitor/prototype-3d` preserva `DashboardSimulationController`, o botão Dashboard e `?source=dashboard&embed=true`: nesse modo recebe snapshots pelo BroadcastChannel, sem abrir outro cliente MQTT nem receber credenciais.
+- Produção exige bridge/backend autenticado, com autorização e credenciais mantidas no servidor. O acesso WSS direto com senha temporária é exclusivamente para a demonstração local.
 
-- Broker: `wss://broker.emqx.io:8084/mqtt`.
-- Telemetria: `aquamonitor/demo-29out-b741d2/telemetria`.
-- Status: `aquamonitor/demo-29out-b741d2/status`.
-- Referência Wokwi já documentada no projeto: https://wokwi.com/projects/478540696015596545.
-
-O laboratório só assina tópicos. Não publica comandos nem muda `input_mode`. Há uma conexão ativa somente no modo MQTT, encerrada ao retornar à demonstração. Retidos não comprovam atualização; dados válidos expiram em **6 segundos**. Desconexão, status offline e expiração interrompem os fluxos e mostram estados desconhecidos. Falha do sensor oculta a leitura numérica de telemetria. A identificação `device` aparece quando o payload a fornece; sua ausência não é substituída por uma identificação inventada.
-
-Este repositório contém o laboratório independente e cópias dos módulos compartilhados; não contém a aplicação React do dashboard, um transporte de dados por iframe ou um terceiro modo Dashboard. A remodelagem preserva o consumo somente leitura e o contrato disponíveis. Uma validação do dashboard completo depende do repositório original.
+Roteiro completo e lista de arquivos: `/home/mateus/Downloads/Aqua onitor/docs/INTEGRACAO-EMQX.md`. Nenhuma alteração de firmware faz parte desta integração.
 
 ## Arquivos e responsabilidades
 
@@ -56,7 +56,7 @@ Este repositório contém o laboratório independente e cópias dos módulos com
 - `src/scene/Water.js`: chuva, escoamento superficial sem mangueiras decorativas, partículas instanciadas e percurso gravitacional descendente.
 - `src/scene/SceneManager.js`: animações condicionadas aos estados, níveis separados, corte suave, seleção de componentes, qualidade e descarte de recursos.
 - `src/scene/CameraController.js`: nove perspectivas e detalhe do sensor com transições suaves.
-- `src/simulation/SimulationController.js`: adaptação do armazenamento à barragem e estimativa visual MQTT sem interferir nas leituras.
+- `src/simulation/SimulationController.js`: projeção da telemetria e modo local, sem gerar estados hidráulicos no modo MQTT.
 - `src/features/simulation/engine/simulation.ts`: controle manual opcional da drenagem, preservando modo automático, balanço e proteções.
 - `src/ui/Controls.js` e `src/styles/main.css`: títulos, inspeção, tour opcional, controles e espaço reservado ao painel lateral.
 - `src/scene/Layers.js`: offsets reversíveis, isolamento e opacidades independentes.
@@ -67,7 +67,7 @@ Este repositório contém o laboratório independente e cópias dos módulos com
 
 `npm test` cobre o motor e a cena, incluindo novos testes de camadas e apresentação: coleta, bombeamento direto, interrupção, reúso sem retorno, conservação/capacidade, proteção manual, pausa/reinício, dados MQTT válidos/inválidos/retidos, expiração/offline/recuperação, isolamento dos controles, trajetória descendente e enquadramentos. Os testes de MQTT usam um cliente emulado, sem publicar na rede.
 
-Inspeção no navegador local cobre os controles, a maquete, as vistas e o modo somente leitura. O build usa as dependências existentes; nenhum pacote novo foi adicionado. O bundle Three.js pode gerar o aviso de chunk acima de 500 kB, sem impedir o build.
+Inspeção no navegador local cobre os controles, a maquete e os estados sem conexão. O build usa as dependências existentes; nenhum pacote novo foi adicionado. O bundle Three.js pode gerar o aviso de chunk acima de 500 kB, sem impedir o build.
 
 Permanecem necessários o ensaio ponta a ponta com ESP32/Wokwi transmitindo, a validação na aplicação completa do dashboard e o teste em Firefox/Linux no notebook da apresentação. O navegador integrado não substitui essa matriz de hardware. A remodelagem usou o desenho do protótipo físico e as referências visuais anexadas ao pedido, além da descrição textual e dos componentes procedurais existentes.
 
@@ -82,3 +82,11 @@ A cópia integrada mantém `DashboardSimulationController`, `?embed=true` e `?so
 As melhorias compatíveis da branch `demonstracao-tecnica` (commit `123589b`) foram adaptadas para o circuito de uma bomba: cidade com fachadas e telhados texturizados, lojas, calçadas, trânsito com semáforos, pedestres e guarda-chuvas, árvores com vento e respingos. A iluminação procedural muda com a chuva, incluindo nuvens, janelas e postes iluminados durante a tempestade. As texturas são geradas localmente, sem downloads adicionais.
 
 Foram preservados o declive calibrado da rua, a abertura de inspeção, o bombeamento direto à barragem, o reúso por gravidade, o motor e os controles existentes. O reservatório intermediário e a segunda bomba da branch do colaborador não foram incorporados. As animações respeitam pausa e dados atuais; a qualidade gráfica limita o número de respingos. Os materiais animados continuam funcionando com transparência, isolamento e vista explodida.
+
+## Dashboard do aplicativo
+
+Para abrir o Dashboard integrado a partir desta pasta, execute `npm run dashboard`.
+O comando inicia o aplicativo em `/home/mateus/Downloads/Aquaonitor`, que mantém
+a maquete incorporada e os controles do Dashboard. `npm run dev` continua abrindo
+o laboratório independente. O guia de conexão do banco está em
+`/home/mateus/Downloads/Aquaonitor/docs/database.md`.

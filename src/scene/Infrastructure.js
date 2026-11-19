@@ -1,4 +1,5 @@
 import * as T from "three";
+import { createPhysicalPrototype } from "./PhysicalPrototype.js";
 import { box, cylinder, tree, group, mat, tag } from "./primitives.js";
 
 // Shared coordinates for geometry, plumbing, cameras and inspection anchors.
@@ -6,10 +7,6 @@ export const hydraulicPaths = {
   drain: [[-0.4, -2.85, 4.2], [0.6, -2.85, 4.2], [1, -2.85, 4.2], [1.4, -2.7, 4.2], [1.6, -2.1, 4.2], [1.9, 0.6, 4.2], [3.2, 1.2, 3.8], [5, 2.6, 2], [6.1, 4.1, -0.5], [7, 4.1, -2]],
   reuse: [[11, 1.34, -0.8], [11, 1.3, 0.3], [11, 0.8, 1.4], [11.7, -0.25, 3.4], [12.3, -0.48, 4.6]],
 };
-function cable(parent, points, color) {
-  const curve = new T.CatmullRomCurve3(points.map(p => new T.Vector3(...p)));
-  parent.add(new T.Mesh(new T.TubeGeometry(curve, 24, 0.025, 5, false), mat(color)));
-}
 export function createInfrastructure(scene) {
   const soil = group(scene);
   box(soil, [17, 3.8, 8.5], [-8, -2, -4.75], 0xbba98c);
@@ -17,6 +14,9 @@ export function createInfrastructure(scene) {
   box(soil, [17, 0.2, 8.5], [-8, -2.8, -4.75], 0xa49378);
   box(soil, [11.5, 3.8, 3.5], [-10.75, -2, 1.25], 0xbba98c);
   box(soil, [11.5, 0.2, 3.5], [-10.75, -2.8, 1.25], 0xa49378);
+  // Dry technical terrace under the electronics and the two front trees.
+  // It joins the city edge and stops before the exposed drain at z = 4.2.
+  box(soil, [2.7, 3.9, 2.9], [2.25, -1.95, 2.65], 0xbba98c);
   box(scene, [35, 0.3, 16], [0, -4, -1.5], 0x748a84);
   box(scene, [5, 0.35, 7], [2.8, -0.15, -4.5], 0x9bac8c);
   const underground = group(scene);
@@ -47,43 +47,17 @@ export function createInfrastructure(scene) {
   const streetDatum = 0.39, sensorSpan = .9, sensorY = streetDatum + sensorSpan;
   cylinder(sensor, 0.045, 1.2, [-8.9, .99, -1.9], 0x547479);
   box(sensor, [1.3, 0.09, 0.09], [-8.35, sensorY + .22, -1.9], 0x819a9a);
-  box(sensor, [0.42, 0.06, 0.2], [-7.8, sensorY + .06, -1.9], 0x176b66);
-  for (const xx of [-7.93, -7.67]) {
-    cylinder(sensor, .075, .09, [xx, sensorY, -1.9], 0xb7c9c6);
-    cylinder(sensor, .05, .01, [xx, sensorY - .05, -1.9], 0x263f47);
+  box(sensor, [0.65, 0.06, 0.3], [-7.8, sensorY + .06, -1.9], 0x286483);
+  for (const xx of [-7.99, -7.61]) {
+    cylinder(sensor, .13, .12, [xx, sensorY, -1.9], 0xb7c9c6);
+    cylinder(sensor, .1, .012, [xx, sensorY - .067, -1.9], 0x263f47);
   }
   tag(sensor, "sensor");
   const cone = new T.Mesh(new T.ConeGeometry(.46, 1, 24, 1, true), mat(0x81d1cd, { transparent: true, opacity: .1, depthWrite: false, side: T.DoubleSide }));
   cone.position.set(-7.8, 1.6, -1.9);
   sensor.add(cone);
 
-  const esp = group(underground);
-  box(esp, [1.4, 0.16, 1.5], [1.9, 0, 2.1], 0xd4dcd0);
-  for (const xx of [1.4, 2.4]) box(esp, [0.12, .5, 0.12], [xx, -.25, 2.1], 0x81958a);
-  box(esp, [0.75, 0.1, 1.15], [1.9, 0.16, 2.1], 0x24584e);
-  box(esp, [0.48, 0.13, 0.55], [1.9, 0.27, 2.1], 0xb9c6bf);
-  box(esp, [0.5, 0.025, 0.22], [1.9, 0.23, 1.65], 0x283c39);
-  for (let i = 0; i < 7; i++) for (const xx of [1.48, 2.32])
-    box(esp, [0.14, 0.06, 0.035], [xx, 0.21, 1.7 + i * 0.13], 0xc5b886);
-  const espLight = box(esp, [0.07, 0.045, 0.07], [1.65, 0.24, 2.54], 0x7faf83);
-  espLight.material = espLight.material.clone();
-  cable(esp, [[1.5, 0.2, 2.3], [1.25, .2, 2.1], [1.25, .1, 1.7]], 0xc69c55);
-  cable(esp, [[2.2, 0.2, 2.5], [2.3, .3, 2.7], [2.8, .2, 2.7]], 0x405651);
-  const relays = [];
-  for (const [i, key] of ['drain', 'reuse'].entries()) {
-    const zz = 1.8 + i * .62;
-    box(esp, [.53, .05, .42], [2.85, .17, zz], 0x1d6b57);
-    box(esp, [.32, .25, .3], [2.85, .32, zz], 0x246eb3);
-    const led = box(esp, [.055, .04, .055], [3.05, .23, zz], 0x70877b);
-    led.material = led.material.clone();
-    relays.push({ key, led });
-    cable(esp, [[2.2,.22,zz],[2.4,.3,zz],[2.65,.22,zz]], 0xd9ac60);
-  }
-  // Group pivot at the dry technical platform. Inspection uses camera zoom.
-  esp.children.forEach(o => o.position.sub(new T.Vector3(1.9, 0, 2.1)));
-  esp.position.set(1.9, .12, 2.1);
-  esp.scale.setScalar(.5);
-  tag(esp, "esp32");
+  const { esp, espLight, relays, prototypeIndicators } = createPhysicalPrototype(underground);
 
   const pump = group(underground);
   box(pump, [1.2, 0.16, 1.3], [-0.5, -3.48, 4.2], 0x647f77);
@@ -160,5 +134,5 @@ export function createInfrastructure(scene) {
     tag(grate, "city");
     drains.push([xx, 0.42, -0.1]);
   }
-  return { soil, underground, chamber, sensor, sensorY, sensorSpan, streetDatum, esp, relays, dam, irrigation, pump, gallery, damWater, pumps: [{ rotor, light, key: "drain" }], cone, espLight, drains, grates, valve };
+  return { soil, underground, chamber, sensor, sensorY, sensorSpan, streetDatum, esp, relays, dam, irrigation, pump, gallery, damWater, pumps: [{ rotor, light, key: "drain" }], prototypeIndicators, cone, espLight, drains, grates, valve };
 }

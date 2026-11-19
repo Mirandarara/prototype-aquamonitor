@@ -8,3 +8,13 @@
 @media(max-height:850px) and (min-width:801px){footer{height:180px}main{bottom:180px}.camera-card{height:88px}.side-nav{top:98px;gap:7px}.side-nav button{height:62px;width:68px}.monitor{top:94px;max-height:calc(100% - 108px)}.monitor .reading strong{font-size:38px}.monitor dl>div{padding:8px 0}.monitor .rain-summary{padding:8px}.station{padding-top:10px}.monitor .destination{padding:8px}.risk{margin-bottom:8px}.rain-control{width:190px}.simulation-controls{padding-top:9px}.context-panel{top:98px}}
 @media(max-width:800px){.monitor{max-height:calc(100% - 175px)}.camera-card{min-width:123px}.monitor .rain-summary{display:none}}
 @media(max-height:850px) and (min-width:801px){.monitor .destination{display:none}.monitor{padding:13px}.monitor dl>div{padding:7px 0}.monitor .panel-foot{font-size:8px}.monitor .rain-summary small{font-size:10px}.monitor .rain-summary .rain-bars{font-size:19px}}
+
+.mqtt-session { position:fixed; z-index:40; right:18px; top:80px; width:min(360px,calc(100vw - 36px)); max-height:70vh; overflow:auto; background:#f1f7f8; color:#183842; border:1px solid #b6cbd0; border-radius:12px; padding:12px; box-shadow:0 8px 24px #102d3533; font-size:12px; }
+.mqtt-session summary {cursor:pointer; font-weight:700;} .mqtt-session label {display:block;margin:8px 0;} .mqtt-session input:not([type=checkbox]),.mqtt-session select {width:100%;box-sizing:border-box;padding:6px;} .mqtt-session button {margin:6px;padding:6px;}
+
+/* The connection card uses a light surface independently of the scene theme. */
+.mqtt-session { color-scheme:light; }
+.mqtt-session input:not([type=checkbox]), .mqtt-session select { background:#fff; color:#183842; border:1px solid #8ba8b1; border-radius:6px; }
+.mqtt-session button { color:#fff; background:#123f4e; border-color:#123f4e; }
+.mqtt-session button:hover { background:#205d70; }
+#mqtt-session-help { line-height:1.5; }

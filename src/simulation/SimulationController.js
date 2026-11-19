@@ -4,7 +4,7 @@ import {
   alarmLabels,
   SIMULATION_CONFIG as config,
 } from "../features/simulation/engine/simulation.ts";
-import { telemetryFresh } from "../features/esp32/mqttService.ts";
+import { telemetryFresh, telemetryDelayed } from "../features/esp32/mqttService.ts";
 
 const clamp = (n) => Math.min(1, Math.max(0, n));
 // The existing engine's tankLiters is the sole downstream store: the dam.
@@ -55,21 +55,6 @@ export class SimulationController {
         this.tour = false;
         this.dispatch({ type: "running", value: false });
       }
-    } else {
-      const v = this.view(now);
-      if (v.fresh) {
-        // Uncalibrated visual estimate only. Never integrate back into sensor data,
-        // and never interpret legacy tank floats as measurements of the dam.
-        const capacity = config.defaultCapacityLiters;
-        const available = this.liveDam * capacity;
-        const released = v.reuseFlow ? Math.min(available, dt * config.reuseLitersPerMinute / 60) : 0;
-        const pumped = v.drainFlow ? Math.min(
-          capacity - available + released,
-          v.level * config.maxHeightCm * config.litersPerCm,
-          dt * config.drainageLitersPerMinute / 60,
-        ) : 0;
-        this.liveDam = clamp((available + pumped - released) / capacity);
-      }
     }
     return this.view(now);
   }
@@ -102,14 +87,16 @@ export class SimulationController {
       level: t?.sensor_ok ? t.level_pct / 100 : null,
       levelCm: t?.sensor_ok ? t.level_cm : null,
       distanceCm: t?.sensor_ok ? t.distance_cm : null,
-      dam: this.liveDam,
+      dam: null,
       rain: 0,
       drain: fresh ? (t.drain_on ? "on" : "off") : "unknown",
       reuse: fresh ? (t.reuse_on ? "on" : "off") : "unknown",
-      drainFlow: fresh && t.drain_on && t.sensor_ok && t.level_pct > 0 && this.liveDam < 1,
-      reuseFlow: fresh && t.reuse_on && this.liveDam > 0,
+      drainFlow: fresh && t.drain_on,
+      reuseFlow: fresh && t.reuse_on,
       sensor: fresh ? t.sensor_ok : null,
       fresh,
+      delayed: telemetryDelayed(snap, now),
+      ageSeconds: snap.receivedAt === null ? null : Math.max(0, Math.floor((now - snap.receivedAt) / 1000)),
       alarm: fresh ? (t.alarm ? t.alarm_code : "") : "Sem telemetria atual",
       input: !t ? "Entrada desconhecida" : t.input_mode === "virtual" ? "Entrada virtual do ESP32" : "Sensor HC-SR04",
       device: typeof t?.device === "string" ? t.device : "ESP32 · identificação não informada",

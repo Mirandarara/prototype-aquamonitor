@@ -2,10 +2,10 @@ import "./styles/main.css";
 import "./styles/brand.css";
 import { SceneManager } from "./scene/SceneManager.js";
 import { SimulationController } from "./simulation/SimulationController.js";
-import { AquaMqttService } from "./mqtt/mqttClient.js";
+import { aquaMqtt } from "./mqtt/mqttClient.js";
 import { layout, bindControls } from "./ui/Controls.js";
 layout();
-const mqtt = new AquaMqttService(),
+const mqtt = aquaMqtt,
   sim = new SimulationController(mqtt);
 let scene,
   ui,

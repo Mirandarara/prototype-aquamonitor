@@ -7,7 +7,7 @@ export const views = {
   exploded: { position: [28, 30, 38], target: [-1, 2, -1] },
   gallery: { position: [2, 4.5, 15], target: [-1.3, -1.5, 3.5] },
   sensor: { position: [-11, 6, 4], target: [-7.8, 1.6, -1.9] },
-  esp32: { position: [3.6, 2, 4.5], target: [2, .2, 2.1] },
+  esp32: { position: [3.6, 2.6, 4.5], target: [2, .8, 2.1] },
   drain: { position: [3.8, 0.5, 10.5], target: [-0.4, -2.6, 4.2] },
   pipes: { position: [14, 10, 18], target: [3.5, 0.6, 2.3] },
   dam: { position: [19, 20, 15], target: [10.5, 2, -3] },

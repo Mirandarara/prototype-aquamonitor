@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AquaMonitor · Diagnóstico MQTT real</title>
+<style>
+body{font:16px system-ui;background:#edf5f7;color:#123a47;margin:0;padding:28px}main{max-width:900px;margin:auto}section{background:white;padding:22px;border:1px solid #c6dce3;border-radius:14px;margin:16px 0}h1{font-size:26px}label{display:block;margin:12px 0}input{display:block;padding:10px;width:min(95%,380px);border:1px solid #8aaab7;border-radius:6px}button{background:#086e85;color:white;border:0;padding:12px 18px;border-radius:7px;cursor:pointer;margin:4px}button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;background:#eff5f7;padding:14px;max-height:360px;overflow:auto}dd{margin:4px 0 14px;overflow-wrap:anywhere}dt{font-weight:bold}#state{font-size:19px;font-weight:600}small{color:#476774}
+</style>
+<main>
+<h1>Diagnóstico da conexão real do ESP32</h1>
+<p>Deixe o Wokwi rodando. Esta página recebe mensagens do seu EMQX Cloud; não gera telemetria nem envia comandos ao ESP32.</p>
+<section>
+<form id="login" autocomplete="off">
+<label>Usuário MQTT<input name="username" value="aquamonitor" required autocomplete="off"></label>
+<label>Senha MQTT<input name="password" type="password" required autocomplete="off"></label>
+<button id="connect">Conectar e observar ESP32</button><button id="disconnect" type="button">Desconectar</button>
+</form>
+<small>As credenciais são usadas apenas em memória para conectar a este broker e são descartadas ao desconectar ou fechar a página.</small>
+<p id="state" role="status">Aguardando credenciais MQTT.</p>
+<p id="finding">Use a mesma senha configurada no firmware do Wokwi.</p>
+</section>
+<section><h2>Recebimento</h2><dl id="summary"></dl></section>
+<section><h2>Eventos da conexão</h2><pre id="events">Nenhum evento ainda.</pre></section>
+<section><h2>Última mensagem recebida</h2><pre id="message">Nenhuma mensagem recebida.</pre></section>
+</main>
+<script type="module">
+import mqtt from 'mqtt';
+import { MQTT_CONFIG as config, parseTelemetry } from './src/features/esp32/protocol.ts';
+const get = id => document.getElementById(id);
+const filter = 'aquamonitor/#';
+let client = null, packets = 0, readings = 0, lastReading = null, connectedAt = null, retainedStatus = null, subscriptions = [], logs = [], topics = new Set();
+function log(text) {
+  logs.unshift(`${new Date().toLocaleTimeString('pt-BR')} · ${text}`);
+  get('events').textContent = logs.slice(0,30).join('\n');
+}
+function render() {
+  const fields = {Servidor: config.url, 'Tópico esperado de telemetria': config.telemetry, 'Assinaturas aceitas': subscriptions.join(', ') || 'aguardando', 'Mensagens recebidas': packets, 'Leituras atuais válidas': readings, 'Última leitura': lastReading ? `${Math.floor((Date.now()-lastReading)/1000)} s atrás` : 'nenhuma', 'Status retido no broker': retainedStatus ?? 'nenhum recebido', 'Tópicos observados': [...topics].join(', ') || 'nenhum'};
+  get('summary').replaceChildren();
+  for (const [label,value] of Object.entries(fields)) {
+    const dt = document.createElement('dt'), dd = document.createElement('dd');
+    dt.textContent = label; dd.textContent = String(value); get('summary').append(dt,dd);
+  }
+  if (client?.connected && lastReading) {
+    get('finding').textContent = Date.now()-lastReading < config.staleMs
+      ? 'Telemetria real recebida do ESP32. O caminho Wokwi → EMQX → navegador está funcionando nesta conexão.'
+      : 'A telemetria parou. Confira os eventos do Wokwi e a sessão do ESP32 no broker.';
+  } else if (client?.connected && connectedAt && Date.now()-connectedAt > 10000 && subscriptions.includes(config.telemetry)) {
+    get('finding').textContent = 'Navegador conectado e assinatura aceita, mas nenhuma telemetria atual válida chegou. Um status offline retido não comprova uma desconexão atual. Veja os tópicos e eventos abaixo.';
+  }
+}
+function stop() {
+  const previous = client; client = null;
+  if(previous) { previous.removeAllListeners(); previous.on('error',()=>{}); delete previous.options.password; delete previous.options.username; previous.end(true); }
+  get('login').elements.password.value = ''; get('connect').disabled = false;
+  get('state').textContent = 'Desconectado.'; connectedAt = null;
+}
+get('disconnect').onclick = () => {stop(); log('Conexão encerrada nesta página.'); render();};
+get('login').onsubmit = event => {
+  event.preventDefault();
+  const username = get('login').elements.username.value.trim();
+  const password = get('login').elements.password.value;
+  stop(); packets=0; readings=0; lastReading=null; retainedStatus=null; subscriptions=[]; topics=new Set(); logs=[];
+  get('connect').disabled=true; get('state').textContent='Conectando ao EMQX Cloud…';
+  get('finding').textContent='Aguardando confirmação da conexão e das assinaturas.';
+  const active = mqtt.connect(config.url,{username,password,clientId:`aqua-diagnostico-${crypto.randomUUID()}`,clean:true,reconnectPeriod:3000,connectTimeout:15000,keepalive:30,resubscribe:false});
+  client=active;
+  active.on('connect',()=>{
+    connectedAt=Date.now(); subscriptions=[];
+    get('state').textContent='Broker conectado; verificando assinaturas.'; log('CONNACK aceito pelo broker.');
+    // A assinatura exata permite testar o painel mesmo quando o curinga não é autorizado.
+    for (const topic of [config.telemetry,config.status,filter]) {
+      active.subscribe(topic,{qos:0},(error,granted)=>{
+        if(client!==active)return;
+        if(error || !granted?.length || granted.some(item=>item.qos===128)) log(`Assinatura recusada: ${topic}`);
+        else { subscriptions.push(topic); log(`Assinatura aceita: ${topic}`); }
+        get('state').textContent=subscriptions.includes(config.telemetry)?'Broker conectado; escutando telemetria real.':'Broker conectado; assinatura de telemetria ainda não confirmada.';
+        render();
+      });
+    }
+  });
+  active.on('message',(topic,payload,packet)=>{
+    packets++; topics.add(topic);
+    if(payload.length>4096){log(`Pacote acima de 4096 bytes em ${topic}`);render();return;}
+    const raw=payload.toString();
+    get('message').textContent=`Tópico: ${topic}\nRetida: ${Boolean(packet.retain)}\n${raw}`;
+    if(topic===config.status){if(packet.retain)retainedStatus=raw;log(`Status ${packet.retain?'retido':'atual'}: ${raw.slice(0,80)}`);}
+    if(topic===config.telemetry){
+      try {
+        const reading=parseTelemetry(raw);
+        if(packet.retain) log('Telemetria retida recebida; não conta como leitura atual.');
+        else {readings++;lastReading=Date.now();get('state').textContent=`ESP32 transmitindo · nível ${reading.level_cm} cm · sequência ${reading.seq}`;if(readings===1)log('Primeira telemetria real válida recebida.');}
+      } catch(error){log(`Telemetria rejeitada: ${error.message}`);}
+    } else if(topic.endsWith('/telemetria'))log(`ESP32 publicando em tópico diferente do painel: ${topic}`);
+    render();
+  });
+  active.on('close',()=>{connectedAt=null;get('state').textContent='Conexão com broker encerrada; tentando reconectar.';log('Conexão encerrada pelo transporte/broker.');render();});
+  active.on('error',error=>{get('state').textContent='Falha na conexão MQTT.';log(`Erro MQTT: código ${error.code ?? 'não informado'}.`);});
+  active.on('disconnect',packet=>log(`Desconexão MQTT: código ${packet.reasonCode ?? 'não informado'}.`));
+  render();
+};
+setInterval(render,1000);
+window.addEventListener('pagehide',stop);
+render();
+</script>
+</html>

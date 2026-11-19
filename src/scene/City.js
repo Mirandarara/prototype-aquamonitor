@@ -59,6 +59,10 @@ export function createCity(scene) {
   // Ground slab, roads and markings.
   sizedBox(statics, [17, 0.3, 9.2], [-5, 0.15, -3.4], 0x9c8a6e);
   sizedBox(statics, [11.5, 0.3, 3.5], [-7.75, 0.15, 2.25], 0x9c8a6e);
+  // Continue the city onto the dry technical terrace, supporting its trees.
+  sizedBox(statics, [2.7, 0.3, 2.9], [2.25, 0.15, 2.65], 0x9c8a6e);
+  sizedBox(statics, [2.7, 0.14, 2.9], [2.25, 0.37, 2.65], paving, [1.2, 1.2]);
+  sizedBox(statics, [2.3, 0.02, 2.5], [2.25, 0.45, 2.65], grass, [2, 2]);
   sizedBox(statics, [17, 0.08, 2.2], [-5, 0.34, -0.5], asphalt, [2.5, 2.5]);
   sizedBox(statics, [2.1, 0.08, 6.4], [-5, 0.34, -4.8], asphalt, [2.5, 2.5]);
   sizedBox(statics, [2.1, 0.08, 3.4], [-5, 0.34, 2.3], asphalt, [2.5, 2.5]);

@@ -1,4 +1,5 @@
 import * as T from "three";
+import { prototypeState } from "../simulation/prototypeState.js";
 import { createCity } from "./City.js";
 import { createInfrastructure, hydraulicPaths } from "./Infrastructure.js";
 import { CameraController, views } from "./CameraController.js";
@@ -178,10 +179,10 @@ export class SceneManager {
     const environmentOpacity = this.layers.items.find(i => i.key === 'environment').opacity;
     this.rain.lines.material.opacity = .55 * environmentOpacity;
     if (v.level !== null) this.level += (v.level - this.level) * alpha;
-    this.dam += (v.dam - this.dam) * alpha;
+    if (v.dam !== null) this.dam += (v.dam - this.dam) * alpha;
     this.parts.gallery.scale.y = Math.max(0.001, this.level * 2.65);
     this.parts.gallery.position.y = -3.58 + this.parts.gallery.scale.y / 2;
-    this.parts.gallery.visible = this.level > 0.001;
+    this.parts.gallery.visible = v.level !== null && this.level > 0.001;
     // Street reading is calibrated at the road. Gallery volume is an illustrative
     // synchronized hydraulic view, never a second measured water level.
     this.street.mesh.position.y = this.parts.streetDatum + this.level * this.parts.sensorSpan;
@@ -198,7 +199,8 @@ export class SceneManager {
     this.damSurface.update(this.time, v.drainFlow ? 1.5 : .7);
     this.parts.gallery.material.opacity = (v.fresh ? 0.58 : 0.23) * this.layers.items.find(i => i.key === "hydraulic").opacity;
     this.parts.damWater.scale.y = Math.max(0.001, this.dam * 1.8);
-    this.parts.damWater.visible = this.dam > 0.001;
+    this.parts.damWater.visible = v.dam !== null && this.dam > 0.001;
+    this.damSurface.mesh.visible = v.dam !== null;
     for (const { ring, water, key, offset } of this.ripples) {
       const phase = (this.time * 0.45 + offset) % 1;
       ring.position.y = key === "gallery" ? water.position.y + water.scale.y / 2 + 0.018 : 1.3 + water.scale.y + 0.018;
@@ -221,6 +223,14 @@ export class SceneManager {
       const state = v[p.key];
       p.light.material.color.setHex(state === "on" ? 0x4fbe8f : state === "blocked" ? 0xd78c53 : state === "unknown" ? 0xc0aa80 : 0x71857a);
       if (v.drainFlow) p.rotor.rotation.z += dt * 8;
+    }
+    const hardware = prototypeState(v);
+    for (const { key, color, led } of this.parts.prototypeIndicators) {
+      const state = hardware[key];
+      led.material.color.setHex(state === 'unknown' ? 0xb29969 : color);
+      led.material.emissive.setHex(color);
+      led.material.emissiveIntensity = state === 'on' ? 1.4 : 0;
+      led.material.color.multiplyScalar(state === 'on' ? 1 : .28);
     }
     this.parts.espLight.material.color.setHex(v.fresh ? 0x4fbe8f : 0xc0aa80);
     this.parts.relays.forEach(({ key, led }) => led.material.color.setHex(v[key] === 'on' ? 0x60eab0 : v[key] === 'unknown' ? 0xdca35b : 0x526a68));

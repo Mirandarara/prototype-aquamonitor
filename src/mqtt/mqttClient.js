@@ -1,7 +1,8 @@
 // Shared implementation: no duplicated topic, validation, timeout or connection policy.
-// This prototype subscribes only. It never invokes publish() or changes firmware inputs.
+// In direct MQTT mode, only virtual inputs are published; relay decisions belong to ESP32.
 export {
   AquaMqttService,
+  aquaMqtt,
   telemetryFresh,
 } from "../features/esp32/mqttService.ts";
 export {
